@@ -48,8 +48,12 @@ libraryDependencies ++= Seq(
     "com.amazonaws" % "aws-java-sdk" % awsVersion,
     "org.apache.hadoop" % "hadoop-hdfs" % hadoopVersion,
     "org.apache.hadoop" % "hadoop-common" % hadoopVersion,
-    "org.apache.hadoop" % "hadoop-aws" % hadoopVersion
+    "org.apache.hadoop" % "hadoop-aws" % hadoopVersion,
+    //unarchive xz file
+    "io.sensesecure" % "hadoop-xz" % "1.4"
 )
+
+//libraryDependencies += "io.sensesecure" % "hadoop-xz" % "1.4"
 
 assemblyMergeStrategy in assembly := {
     case PathList("META-INF", xs@_*) =>
