@@ -50,7 +50,9 @@ libraryDependencies ++= Seq(
     "org.apache.hadoop" % "hadoop-common" % hadoopVersion,
     "org.apache.hadoop" % "hadoop-aws" % hadoopVersion,
     //unarchive xz file
-    "io.sensesecure" % "hadoop-xz" % "1.4"
+    "io.sensesecure" % "hadoop-xz" % "1.4",
+    "com.databricks" %% "spark-xml" % "0.5.0"
+
 )
 
 //libraryDependencies += "io.sensesecure" % "hadoop-xz" % "1.4"

@@ -42,7 +42,7 @@ object ParseFile{
         println(df.count())
 */
         var originalDF = spark.read.option("io.compression.codecs","io.sensesecure.hadoop.xz.XZCodec")
-            .text("C:\\Users\\foxconn\\Desktop\\C:\\Users\\foxconn\\Desktop\\WuDang\\*")
+            .text("C:\\Users\\foxconn\\Desktop\\WuDang_04220429\\*")
             .selectExpr("input_file_name() as filename").distinct()
             .filter(col("filename").contains("06MD")
               .or(col("filename").contains("06PK"))
@@ -70,8 +70,8 @@ object ParseFile{
         originalDF.show(300, false)
         println(originalDF.count())
         originalDF = originalDF.selectExpr("split(filename, '/')[6] as filename")
-          .withColumn("cp", concat(lit("cp "), col("filename"), lit(" C:\\Users\\foxconn\\Desktop\\TaijiBase")))
-        originalDF.select("cp").coalesce(1).write.csv("C:\\Users\\foxconn\\Desktop\\WuDang\\test")
+          .withColumn("cp", concat(lit("cp "), col("filename"), lit(" C:\\Users\\foxconn\\Desktop\\TaijiBase_04220429")))
+        originalDF.select("cp").coalesce(1).write.csv("C:\\Users\\foxconn\\Desktop\\WuDang_04220429\\test")
     }
 
 }
