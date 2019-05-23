@@ -1,0 +1,83 @@
+spark:
+    job_name: "ipbd-lx-monitor-KernelEngine"
+    master: "k8s://https://192.168.1.60:8443"
+
+minio:
+    endpoint:   "http://10.57.232.167:31359"
+    accessKey:  "AKIAIOSFODNN7EXAMPLE"
+    secretKey:  "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+    bucket:     "rca"
+
+cockroachdb:
+    adapter:    "postgresql"
+    host:       "10.57.232.62"
+    port:       "26257"
+    sslmode:    "require"
+    database:   "rca-ipbd-lx-monitor"
+    username:   "bigdata"
+    password:   "bigdata"
+    conn_str:   "jdbc:{{adapter}}://{{host}}:{{port}}/{{database}}"
+
+mariadb:
+    adapter:    "mysql"
+    host:       "10.57.232.61"
+    port:       "3308"
+    database:   "rca-ipbd-lx-monitor"
+    username:   "edgeserver"
+    password:   "Foxconn123654!@"
+    conn_str:   "jdbc:{{adapter}}://{{host}}:{{port}}/{{database}}?useSSL=false&useUnicode=true&characterEncoding=UTF-8"
+
+general:
+    factory: "CQ"
+    from_minio: "true"
+
+part_vendor_rules:
+    Carton: "PARTSN,1,5"
+    IF Board: "PARTSN,1,7"
+    Power Board: "PARTSN,1,7"
+    Panel Board: "PARTSN,1,7"
+
+part_datecode_rules:
+    Carton: "PARTSN,6,15"
+    IF Board: "PARTSN,8,12"
+    Power Board: "PARTSN,8,12"
+    Panel Board: "PARTSN,8,23"
+
+local_log_path:
+    data_base_path: "/home/hanlinux/rca_data/DPBU-L10"
+    wip_path: "{{data_base_path}}/sfc_processed.txt"
+    wip_parts_path: "{{data_base_path}}/parts_processed.txt"
+    bobcat_path: "{{data_base_path}}/test_processed.txt"
+    wip_file_limits: "30"
+    wip_parts_file_limits: "30"
+    bobcat_file_limits: "0"
+
+minio_log_path:
+    data_base_path: "s3a://rca/DPBU-L10/Data"
+    wip_path: "{{data_base_path}}/SFC/R_WIP_SFC/"
+    wip_parts_path: "{{data_base_path}}/SFC/R_WIP_PARTS_SFC/"
+    bobcat_path: "{{data_base_path}}/Bobcat/"
+    wip_file_limits: "300"
+    wip_parts_file_limits: "300"
+    bobcat_file_limits: "30"
+
+log_prop:
+    #CN8BJ7C2G1_||_CN8BJ7C2G1_||_296200140_||_V1N03B#629_||_V1N03B#629_||_Main   B_||_2018-11-19 13:39:07.467_||__||__||_TaiJi   Base_||_D626
+    wip_col: "id,sn,wo,hh_part,cust_part,assembline,scantime,na1,na2,product,floor"
+    wip_table: "part_master"
+    wip_dt_fmt: "yyyy-MM-dd HH:mm:ss"
+
+    #CN8BJ7C2G1_||_C189220M8PFAC_||_2018-11-19 13:39:07.467_||_F1034891_||_Main B_||_LK_||_F5S43-60001_||_F5S43-60001_||_D626_||_0
+    wip_parts_col: "id,partsn,scantime,opid,assembly_station,part,hh_pard,cust_part,line,disassembly"
+    wip_parts_table: "part_detail"
+    wip_parts_dt_fmt: "yyyy-MM-dd HH:mm:ss"
+
+    #CN8BS7C334_||_TLEOL_||_TLEOL_||_LC_TLEOL_41_||_11/29/2018 8:33:10 AM_||_11/29/2018 8:38:46 AM_||_0_||__||__||_11/29/2018 8:38:46 AM
+    bobcat_col: "sn,station,stationcode,machine,start_time,end_time,istestfail,symptom,desc_,uploadtime,c1,c2,c3"
+    bobcat_table: "test"
+    bobcat_dt_fmt: "yyyy-MM-dd HH:mm:ss"
+
+    log_seperator: "_\\|\\|_"
+
+analysis:
+    fail_condition: "1"
