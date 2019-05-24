@@ -11,7 +11,8 @@ object CheckItem{
     val datetimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.US)
 
     def main(args: Array[String]): Unit = {
-
+        val date = "01140121"
+        val olddate = "02110218"
         val spark = SparkSession.builder()
           .appName("Spark SQL basic example")
           .config("spark.master", "local")
@@ -25,7 +26,7 @@ object CheckItem{
         println(df.count())
 */
         var df = spark.read
-            .text("C:\\Users\\foxconn\\Desktop\\TaijiBase_04220429\\*.xml")
+            .text("C:\\Users\\foxconn\\Desktop\\TaijiBase\\TaijiBase_"+date+"\\*.xml")
         df = df.filter(col("value").contains("StepName=\""))
         df = df.selectExpr("split(split(value, 'StepName=\"')[1], '\"')[0] as item", "input_file_name() as filename")
                 .selectExpr("trim(item) as item", "filename")
@@ -34,11 +35,14 @@ object CheckItem{
         df = df.selectExpr("split(value, 'StepName=\"') as split_array")*/
         //df = df.selectExpr("explode(split_array) as item").
         df.show(false)
-        var item = spark.read
-          .csv("C:\\Users\\foxconn\\Desktop\\item.txt")
-        item = item.join(df, col("_c0").equalTo(col("item")),"outer").dropDuplicates("item", "_c0")
+        var item = spark.read.option("header", "true")
+          //.csv("C:\\Users\\foxconn\\Desktop\\item.txt")
+            .csv("C:\\Users\\foxconn\\Desktop\\item\\item_"+olddate+".csv")
+
+        //item = item.join(df, col("_c0").equalTo(col("item")),"outer").dropDuplicates("item", "_c0")
+        item = item.union(df).dropDuplicates("item")
         item.show(false)
-        item.coalesce(1).write.csv("C:\\Users\\foxconn\\Desktop\\item_04220429.txt")
+        item.coalesce(1).write.option("header", "true").csv("C:\\Users\\foxconn\\Desktop\\item\\item_"+date)
 
     }
 

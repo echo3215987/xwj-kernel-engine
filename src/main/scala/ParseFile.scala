@@ -28,7 +28,7 @@ object ParseFile{
     val datetimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.US)
 
     def main(args: Array[String]): Unit = {
-
+        val date = "12310107"
         val spark = SparkSession.builder()
           .appName("Spark SQL basic example")
           .config("spark.master", "local")
@@ -42,7 +42,7 @@ object ParseFile{
         println(df.count())
 */
         var originalDF = spark.read.option("io.compression.codecs","io.sensesecure.hadoop.xz.XZCodec")
-            .text("C:\\Users\\foxconn\\Desktop\\WuDang_04220429\\*")
+            .text("C:\\Users\\foxconn\\Desktop\\WuDang\\WuDang_"+date+"\\*")
             .selectExpr("input_file_name() as filename").distinct()
             .filter(col("filename").contains("06MD")
               .or(col("filename").contains("06PK"))
@@ -69,9 +69,9 @@ object ParseFile{
 
         originalDF.show(300, false)
         println(originalDF.count())
-        originalDF = originalDF.selectExpr("split(filename, '/')[6] as filename")
-          .withColumn("cp", concat(lit("cp "), col("filename"), lit(" C:\\Users\\foxconn\\Desktop\\TaijiBase_04220429")))
-        originalDF.select("cp").coalesce(1).write.csv("C:\\Users\\foxconn\\Desktop\\WuDang_04220429\\test")
+        originalDF = originalDF.selectExpr("split(filename, '/')[7] as filename")
+          .withColumn("cp", concat(lit("cp "), col("filename"), lit(" C:\\Users\\foxconn\\Desktop\\TaijiBase\\TaijiBase_"+date)))
+        originalDF.select("cp").coalesce(1).write.csv("C:\\Users\\foxconn\\Desktop\\WuDang\\WuDang_"+date+"\\test")
     }
 
 }
