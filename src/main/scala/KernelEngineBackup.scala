@@ -36,7 +36,7 @@ object KernelEngineBackup{
                 if(args.length == 1) {
                     configLoader.setDefaultConfigPath(args(0))
                 }
-                KernelEngine.start()
+                //KernelEngineBackup.start()
             } catch {
                 case ex: Exception => {
                     ex.printStackTrace()
@@ -50,7 +50,7 @@ object KernelEngineBackup{
     }
 
     def start(): Unit = {
-
+/*
         var date: java.util.Date = new java.util.Date();
         val flag = date.getTime().toString
         val jobStartTime: String = new SimpleDateFormat(
@@ -779,6 +779,7 @@ object KernelEngineBackup{
                 println("===> FileNotFoundException !!!")
             }
         }
+      */
     }
 
 }

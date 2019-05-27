@@ -1,6 +1,6 @@
 package com.foxconn.iisd.bd.rca.utils
 
-import java.io.{BufferedInputStream, FileNotFoundException}
+import java.io._
 import java.net.URI
 import java.sql.DriverManager
 import java.util.Properties
@@ -9,13 +9,15 @@ import com.foxconn.iisd.bd.rca.KernelEngine.configLoader
 import org.apache.hadoop.fs.{FSDataInputStream, FSDataOutputStream, FileSystem, Path}
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
-import java.io.BufferedReader
-import java.io.InputStreamReader
 import java.util
+
+import org.apache.commons.compress.archivers.tar.{TarArchiveEntry, TarArchiveInputStream}
+import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream
 
 import scala.io.Source
 
 object IoUtils {
+    val BUFFERSIZE = 4096
 
     def flatMinioFiles(spark: SparkSession, flag:String, srcPathStr: String, fileLimits: Integer): Path = {
         var count = 0;
@@ -341,6 +343,54 @@ object IoUtils {
         }
         finally {
             writer.close()
+        }
+    }
+
+    def untar( in: InputStream, destinationDir: String ) {
+        try{
+            def processTar( tarIn: TarArchiveInputStream ): Unit = {
+                def processFileInTar( dest: BufferedOutputStream ): Unit = {
+                    val data = new Array[ Byte ]( BUFFERSIZE)
+                    val count = tarIn.read( data, 0, BUFFERSIZE )
+                    count match {
+                        case -1 =>
+                            dest.close( )
+                        case _ =>
+                            dest.write( data, 0, count )
+                            processFileInTar( dest )
+                    }
+                }
+                tarIn.getNextEntry.asInstanceOf[ TarArchiveEntry ]
+                match {
+                    case null =>
+                    case a: TarArchiveEntry if a.isDirectory =>
+                        val f: File = new File( a.getName )
+                        f.mkdirs( )
+                        processTar( tarIn )
+                    case a: TarArchiveEntry if a.isFile =>
+                        println( "Extracting: " + a.getName )
+                        val fos: FileOutputStream = new FileOutputStream( destinationDir + a.getName.split("/").last)
+                        val dest: BufferedOutputStream = new BufferedOutputStream( fos,
+                            BUFFERSIZE )
+                        processFileInTar( dest )
+                        processTar( tarIn )
+                    case a: TarArchiveEntry => processTar( tarIn )
+                }
+            }
+
+
+            //val gzIn: GzipCompressorInputStream = new GzipCompressorInputStream( in )
+            val tarIn: TarArchiveInputStream = new TarArchiveInputStream( in )
+            processTar( tarIn )
+            tarIn.close( )
+            println( "untar completed successfully." )
+
+        }
+        catch {
+            case ex: FileNotFoundException => {
+                // ex.printStackTrace()
+                println("===> FileNotFoundException !!!")
+            }
         }
     }
 

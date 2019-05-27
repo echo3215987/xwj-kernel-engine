@@ -18,6 +18,22 @@ import org.apache.log4j.Level
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.storage.StorageLevel
 
+import org.apache.commons.compress.compressors.xz.XZCompressorInputStream
+import java.io.BufferedInputStream
+import java.io.InputStream
+import java.io.OutputStream
+import java.nio.file.Files
+import java.nio.file.Paths
+
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry
+import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
+import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream
+import java.io.BufferedInputStream
+import java.io.BufferedOutputStream
+import java.io.FileInputStream
+import java.io.FileOutputStream
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry
+
 import scala.collection.mutable._
 
 object KernelEngine{
@@ -58,11 +74,11 @@ object KernelEngine{
 
         var date: java.util.Date = new java.util.Date()
         val flag = date.getTime().toString
-        val jobStartTime: String = new SimpleDateFormat(
+        /*val jobStartTime: String = new SimpleDateFormat(
             configLoader.getString("summary_log_path","job_fmt")).format(date.getTime())
         println("job start time : " + jobStartTime)
         Summary.setJobStartTime(jobStartTime)
-
+*/
         println(s"flag: $flag")
 
         Logger.getLogger("org").setLevel(Level.OFF)
@@ -70,10 +86,13 @@ object KernelEngine{
 
         val sparkBuilder = SparkSession
           .builder
-          .appName(configLoader.getString("spark", "job_name"))
-          .master(configLoader.getString("spark", "master"))
+          //.appName(configLoader.getString("spark", "job_name"))
+          //.master(configLoader.getString("spark", "master"))
+          .config("io.compression.codecs","io.sensesecure.hadoop.xz.XZCodec")
+          .appName("job_name")
+          .master("local")
 
-        val confStr = configLoader.getString("spark", "conf")
+        //val confStr = configLoader.getString("spark", "conf")
 /*
         val confAry = confStr.split(";").map(_.trim)
         for(i <- 0 until confAry.length) {
@@ -83,7 +102,7 @@ object KernelEngine{
         }*/
 
         val spark = sparkBuilder.getOrCreate()
-/*
+
         val configMap = spark.conf.getAll
         for ((k,v) <- configMap) {
             println("[" + k + " = " + v + "]")
@@ -166,7 +185,8 @@ object KernelEngine{
         ///////////
 
         try {
-            /*val wipDestPath = IoUtils.flatMinioFiles(spark,
+          /*
+            val wipDestPath = IoUtils.flatMinioFiles(spark,
                 flag,
                 wipPath,
                 wipFileLmits)
@@ -773,12 +793,69 @@ object KernelEngine{
 */
 
             //從CIMation壓縮檔, 找出產品:Taiji Base, 並過濾維護(repair)資料
-            spark.read.text("vfpa_trans_fail_list_20190513-20190520.tar.xz").show()
-            date = new java.util.Date()
-            val jobEndTime: String = new SimpleDateFormat(configLoader.getString("summary_log_path","job_fmt")).format(date.getTime())
+            val filename_xz  = "C:\\Users\\foxconn\\Desktop\\vfpa_trans_fail_list_20190513-20190520.tar.xz"
+            val filename_tar  = "C:\\Users\\foxconn\\Desktop\\vfpa_trans_fail_list_20190513-20190520.tar.xz".replace(".xz", "")
+            val filename_row = "E:\\untar\\" //+ "\\root\\vfpa\\fail_arch\\fail"
+            val fin_xz = Files.newInputStream(Paths.get(filename_xz))
+            val in_xz = new BufferedInputStream(fin_xz)
+            val out_xz = Files.newOutputStream(Paths.get(filename_tar))
+            val xzIn = new XZCompressorInputStream(in_xz)
+            val buffersize = 4096
+            val buffer = new Array[Byte](buffersize)
+            var n_xz = 0
+            try{
+              while (-1 != (n_xz = xzIn.read(buffer))) {
+                out_xz.write(buffer, 0, n_xz)
+                if(n_xz<0){
+                  println(n_xz)
+                }
+              }
+            }catch{
+              case ex: IndexOutOfBoundsException => {
+                // ex.printStackTrace()
+                println("===> ParseEnd.")
+              }
+            }
+            val fin_tar = Files.newInputStream(Paths.get(filename_tar))
+            IoUtils.untar(fin_tar, filename_row)
+
+            out_xz.close()
+            xzIn.close()
+
+
+
+
+          spark.read.text("C:\\Users\\foxconn\\Desktop\\vfpa_trans_fail_list_20190513-20190520.tar.xz")
+                .selectExpr("value", "input_file_name() as filename")
+                .show(false)
+              /*.filter(col("filename").contains("06MD")
+                .or(col("filename").contains("06PK"))
+                .or(col("filename").contains("06PN"))
+                .or(col("filename").contains("06P4"))
+                .or(col("filename").contains("06PP"))
+                .or(col("filename").contains("06PS"))
+                .or(col("filename").contains("06PT"))
+                .or(col("filename").contains("06PV"))
+                .or(col("filename").contains("06PX"))
+                .or(col("filename").contains("06PY"))
+                .or(col("filename").contains("06PZ"))
+                .or(col("filename").contains("06Q2"))
+                .or(col("filename").contains("06Q3"))
+                .or(col("filename").contains("06Q4"))
+                .or(col("filename").contains("06Q7"))
+                .or(col("filename").contains("06Q8"))
+                .or(col("filename").contains("06Q9"))
+                .or(col("filename").contains("06QD"))
+                .or(col("filename").contains("070W"))
+                .or(col("filename").contains("070X")))
+              */
+              date = new java.util.Date()
+
+            /*val jobEndTime: String = new SimpleDateFormat(configLoader.getString("summary_log_path","job_fmt"))
+              .format(date.getTime())
             println("job end time : " + jobEndTime)
-            Summary.setJobEndTime(jobEndTime)
-            Summary.save(spark)
+            Summary.setJobEndTime(jobEndTime)*/
+            //Summary.save(spark)
         } catch {
             case ex: FileNotFoundException => {
                 // ex.printStackTrace()
