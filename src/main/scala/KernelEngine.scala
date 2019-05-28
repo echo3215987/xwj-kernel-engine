@@ -13,28 +13,21 @@ import com.foxconn.iisd.bd.rca.utils.db._
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
+import org.apache.spark.sql.Encoders
 import org.apache.log4j.Logger
 import org.apache.log4j.Level
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.storage.StorageLevel
+import java.nio.file.{Files, Paths}
 
-import org.apache.commons.compress.compressors.xz.XZCompressorInputStream
-import java.io.BufferedInputStream
-import java.io.InputStream
-import java.io.OutputStream
-import java.nio.file.Files
-import java.nio.file.Paths
+import org.apache.commons.io.FileUtils
+import java.io.File
 
-import org.apache.commons.compress.archivers.tar.TarArchiveEntry
-import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
-import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream
-import java.io.BufferedInputStream
-import java.io.BufferedOutputStream
-import java.io.FileInputStream
-import java.io.FileOutputStream
-import org.apache.commons.compress.archivers.tar.TarArchiveEntry
+import com.mysql.cj.x.protobuf.MysqlxDatatypes.Scalar
+import org.apache.avro.generic.GenericData
 
 import scala.collection.mutable._
+
 
 object KernelEngine{
 
@@ -88,7 +81,7 @@ object KernelEngine{
           .builder
           //.appName(configLoader.getString("spark", "job_name"))
           //.master(configLoader.getString("spark", "master"))
-          .config("io.compression.codecs","io.sensesecure.hadoop.xz.XZCodec")
+          //.config("io.compression.codecs","io.sensesecure.hadoop.xz.XZCodec")
           .appName("job_name")
           .master("local")
 
@@ -102,7 +95,7 @@ object KernelEngine{
         }*/
 
         val spark = sparkBuilder.getOrCreate()
-
+/*
         val configMap = spark.conf.getAll
         for ((k,v) <- configMap) {
             println("[" + k + " = " + v + "]")
@@ -792,64 +785,180 @@ object KernelEngine{
             }
 */
 
-            //從CIMation壓縮檔, 找出產品:Taiji Base, 並過濾維護(repair)資料
-            val filename_xz  = "C:\\Users\\foxconn\\Desktop\\vfpa_trans_fail_list_20190513-20190520.tar.xz"
-            val filename_tar  = "C:\\Users\\foxconn\\Desktop\\vfpa_trans_fail_list_20190513-20190520.tar.xz".replace(".xz", "")
-            val filename_row = "E:\\untar\\" //+ "\\root\\vfpa\\fail_arch\\fail"
-            val fin_xz = Files.newInputStream(Paths.get(filename_xz))
-            val in_xz = new BufferedInputStream(fin_xz)
-            val out_xz = Files.newOutputStream(Paths.get(filename_tar))
-            val xzIn = new XZCompressorInputStream(in_xz)
-            val buffersize = 4096
-            val buffer = new Array[Byte](buffersize)
-            var n_xz = 0
-            try{
-              while (-1 != (n_xz = xzIn.read(buffer))) {
-                out_xz.write(buffer, 0, n_xz)
-                if(n_xz<0){
-                  println(n_xz)
+            //從CIMation.tar.xz壓縮檔, 解壓縮找出產品:Taiji Base的CIMation xml, 並去除維護(repair)資料
+            /*val filepath_xz = "C:\\Users\\foxconn\\Desktop\\vfpa_trans_fail_list_20190513-20190520.tar.xz"
+            val filename_row = "E:\\untar\\"
+            val fin_tar = Files.newInputStream(Paths.get(filepath_xz))
+            IoUtils.unxzfile(fin_tar, filename_row)
+*/
+            //將xml分成三部分解析, 1.最外層的tag CIMProjectResults, 2.tag sequence 3.step測項
+
+
+
+            var CIMProjectResultsDF = spark.read.format("com.databricks.spark.xml")
+                .option("rowTag", "CIMProjectResults")
+                .load("E:\\untar\\*.xml")
+            val originCount = CIMProjectResultsDF.count()
+            var newCIMProjectResultsDF = CIMProjectResultsDF.filter(col("_RunResult").equalTo("Exception")
+                .or(col("_RunResult").equalTo("Pass"))
+                .or(col("_RunResult").equalTo("Fail"))
+            )
+            CIMProjectResultsDF.show(25, false)
+            val afterFilterCount = newCIMProjectResultsDF.count()
+            if(originCount != afterFilterCount){
+                CIMProjectResultsDF = CIMProjectResultsDF.selectExpr("input_file_name() as filename")
+                var newCIMProjectResultsTempDF = newCIMProjectResultsDF.selectExpr("input_file_name() as filename")
+                val removedCIMDF =
+                    CIMProjectResultsDF.join(newCIMProjectResultsTempDF,
+                      CIMProjectResultsDF("filename") === newCIMProjectResultsTempDF("filename"), "leftanti")
+                val list = removedCIMDF.select("filename").map(row => row.mkString(""))(Encoders.STRING)collect()
+
+                for(filename <- list){
+                    //delete RunResult !=  Exception, Pass, Fail
+                    println("delete RunResult !=  Exception, Pass, Fail file: " + filename)
+                    FileUtils.deleteQuietly(new File(filename.replace("file:/", "")))
                 }
-              }
-            }catch{
-              case ex: IndexOutOfBoundsException => {
-                // ex.printStackTrace()
-                println("===> ParseEnd.")
-              }
+                //removedCIMDF.show(false)
             }
-            val fin_tar = Files.newInputStream(Paths.get(filename_tar))
-            IoUtils.untar(fin_tar, filename_row)
 
-            out_xz.close()
-            xzIn.close()
+            newCIMProjectResultsDF = newCIMProjectResultsDF.selectExpr("input_file_name() as filename", "_SerialNumber as SN",
+                    "_StationNumber as STATION_ID", "_RunResult as TEST_STATUS", "_RunDateTimeStarted as TEST_STARTTIME")
+                .withColumn("BUILD_NAME", lit("SOR"))
+                .withColumn("BUILD_DESCRIPTION", lit("SOR"))
+                .withColumn("UNIT_NUMBER", col("SN"))
+
+            newCIMProjectResultsDF.show(25, false)
+
+            var SequenceDF = spark.read.format("com.databricks.spark.xml")
+              //.option("roootTag", "CIMProjectResults")
+              .option("rowTag", "Sequence")
+              .load("E:\\untar\\*.xml")
+            SequenceDF.show(25, false)
+            SequenceDF.selectExpr("explode(Step)").show(50, false)
+
+            SequenceDF = SequenceDF.selectExpr("input_file_name() as filename", "_SeqDateTimeStarted as TEST_ENDTIME")
+
+            SequenceDF.show(25, false)
+
+            var StepDF = spark.read.text("E:\\untar\\*.xml")
+                            .selectExpr("input_file_name() as filename", "value")
+                            .groupBy("filename").agg(concat_ws("", collect_list("value")).as("value"))
+                            .selectExpr("split(value, '<Step') as Step", "filename")
+                            .selectExpr("explode(Step) as Step", "filename")
+                            .filter(col("Step").contains("StepName="))
+
+            //取得測試失敗項目清單(CIMProjectResults.Sequence.Step.StepName 当 CIMProjectResults.Sequence.Step.（TestResult='Fail' or TestResult='Exception' ）),
+            //取得測試失敗項目清單說明(CIMProjectResults.Sequence.Step.TestResultInfo 当 CIMProjectResults.Sequence.Step.（TestResult='Fail' or TestResult='Exception' ）)
+           // var StepFailureListDF = StepDF.withColumn("_StepName", regexp_extract($"Step","StepName=",1))
+                /*.groupBy("filename").agg(concat_ws(";", collect_list("_StepName")).as("_StepName"),
+                concat_ws(";", collect_list("_TestResultInfo")).as("_TestResultInfo"))
+*/
 
 
 
+            StepDF.show(5, false)
+            //StepFailureListDF.show(5, false)
 
-          spark.read.text("C:\\Users\\foxconn\\Desktop\\vfpa_trans_fail_list_20190513-20190520.tar.xz")
-                .selectExpr("value", "input_file_name() as filename")
-                .show(false)
-              /*.filter(col("filename").contains("06MD")
-                .or(col("filename").contains("06PK"))
-                .or(col("filename").contains("06PN"))
-                .or(col("filename").contains("06P4"))
-                .or(col("filename").contains("06PP"))
-                .or(col("filename").contains("06PS"))
-                .or(col("filename").contains("06PT"))
-                .or(col("filename").contains("06PV"))
-                .or(col("filename").contains("06PX"))
-                .or(col("filename").contains("06PY"))
-                .or(col("filename").contains("06PZ"))
-                .or(col("filename").contains("06Q2"))
-                .or(col("filename").contains("06Q3"))
-                .or(col("filename").contains("06Q4"))
-                .or(col("filename").contains("06Q7"))
-                .or(col("filename").contains("06Q8"))
-                .or(col("filename").contains("06Q9"))
-                .or(col("filename").contains("06QD"))
-                .or(col("filename").contains("070W"))
-                .or(col("filename").contains("070X")))
-              */
-              date = new java.util.Date()
+            var TestParmDF = spark.read.format("com.databricks.spark.xml")
+              //.option("roootTag", "CIMProjectResults")
+              .option("rowTag", "TestParm")
+              .load("E:\\untar\\*.xml")
+
+            TestParmDF.show(false)
+
+/*
+            var Step_LIST_OF_FAILURE_DF = StepDF.selectExpr("input_file_name() as filename", "_TestResult", "_StepName", "_TestResultInfo")
+                .filter(col("_TestResult").equalTo("Fail").or(col("_TestResult").equalTo("Exception")))
+                .groupBy(col("filename")).agg(concat_ws(";", collect_list("_StepName")).as("_StepName"),
+                concat_ws(";", collect_list("_TestResultInfo")).as("_TestResultInfo"))
+            Step_LIST_OF_FAILURE_DF.show(25, false)
+*/
+
+            CIMProjectResultsDF.printSchema()
+
+            val datalogSchema =
+                StructType(
+                    Array(
+                        /*StructField("DataLog",
+                            StructType(Array(
+                                StructField("PayLoad", StructType(Array(
+                                    StructField("_GUIResponseTime", StringType)
+                                )))
+
+                            ))
+                        ),*/
+                        //StructField("DataLog", ArrayType(StringType)),
+                        StructField("DataLog", StructType(Array(
+                            StructField("PayLoad",  ArrayType(StringType))
+                        ))),
+                        StructField("_GUIResponseTime", StringType),
+                        StructField("_StepDescription", StringType),
+                        StructField("_StepName", StringType),
+                        StructField("_StepNumber", StringType),
+                        StructField("_TestAsset", StringType),
+                        StructField("_TestDateTimeStarted", StringType),
+                        StructField("_TestElapsedTimeSec", StringType),
+                        StructField("_TestResult", StringType),
+                        StructField("_TestResultInfo", StringType),
+                        StructField("_TestRetryCount", StringType),
+                        StructField("_TestType", StringType)
+                    )
+                )
+
+            val stepSchema =
+                StructType(
+                    Array(
+                        StructField("_GUIResponseTime", StringType),
+                        StructField("_StepDescription", StringType),
+                        StructField("_StepName", StringType),
+                        StructField("_StepNumber", StringType),
+                        StructField("_TestAsset", StringType),
+                        StructField("_TestDateTimeStarted", StringType),
+                        StructField("_TestElapsedTimeSec", StringType),
+                        StructField("_TestResult", StringType),
+                        StructField("_TestResultInfo", StringType),
+                        StructField("_TestRetryCount", StringType),
+                        StructField("_TestType", StringType)
+                    )
+                )
+
+            val sequenceSchema =
+                StructType(
+                    Array(
+                        StructField("_SeqDateTimeStarted", StringType),
+                        StructField("_SeqDescription", StringType),
+                        StructField("_SeqElapsedTimeSec", StringType),
+                        StructField("_SeqName", StringType),
+                        StructField("_SeqResult", StringType)
+                    )
+                )
+
+            val resultSchema =
+                StructType(
+                    Array(
+                        StructField("_ComputerName", StringType),
+                        StructField("_FileFormatVersion", StringType),
+                        StructField("_ProductModel", StringType),
+                        StructField("_ProjectName", StringType),
+                        StructField("_ProjectVersion", StringType),
+                        StructField("_RunDateTimeStarted", StringType),
+                        StructField("_RunElapsedTimeSec", StringType),
+                        StructField("_RunMode", StringType),
+                        StructField("_RunNumber", StringType),
+                        StructField("_RunResult", StringType),
+                        StructField("_SerialNumber", StringType),
+                        StructField("_StationName", StringType),
+                        StructField("_StationNumber", StringType)
+                    )
+                )
+
+            var cc = spark.read.format("com.databricks.spark.xml")
+              .option("rowTag", "Step")
+              .schema(datalogSchema)
+              .load("E:\\untar\\*.xml")
+            cc.show(false)
+
+            date = new java.util.Date()
 
             /*val jobEndTime: String = new SimpleDateFormat(configLoader.getString("summary_log_path","job_fmt"))
               .format(date.getTime())

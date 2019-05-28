@@ -2,6 +2,7 @@ package com.foxconn.iisd.bd.rca.utils
 
 import java.io._
 import java.net.URI
+import java.nio.file.{Files, Paths}
 import java.sql.DriverManager
 import java.util.Properties
 
@@ -13,6 +14,7 @@ import java.util
 
 import org.apache.commons.compress.archivers.tar.{TarArchiveEntry, TarArchiveInputStream}
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream
+import org.apache.commons.compress.compressors.xz.XZCompressorInputStream
 
 import scala.io.Source
 
@@ -346,7 +348,8 @@ object IoUtils {
         }
     }
 
-    def untar( in: InputStream, destinationDir: String ) {
+    //parse xz file
+    def unxzfile( in: InputStream, destinationDir: String ) {
         try{
             def processTar( tarIn: TarArchiveInputStream ): Unit = {
                 def processFileInTar( dest: BufferedOutputStream ): Unit = {
@@ -369,18 +372,111 @@ object IoUtils {
                         processTar( tarIn )
                     case a: TarArchiveEntry if a.isFile =>
                         println( "Extracting: " + a.getName )
-                        val fos: FileOutputStream = new FileOutputStream( destinationDir + a.getName.split("/").last)
-                        val dest: BufferedOutputStream = new BufferedOutputStream( fos,
-                            BUFFERSIZE )
-                        processFileInTar( dest )
+                        if(a.getName.contains("WuDang")
+                          && (a.getName.contains("06MD")
+                          || a.getName.contains("06PK")
+                          || a.getName.contains("06PN")
+                          || a.getName.contains("06P4")
+                          || a.getName.contains("06PP")
+                          || a.getName.contains("06PS")
+                          || a.getName.contains("06PT")
+                          || a.getName.contains("06PV")
+                          || a.getName.contains("06PX")
+                          || a.getName.contains("06PY")
+                          || a.getName.contains("06PZ")
+                          || a.getName.contains("06Q2")
+                          || a.getName.contains("06Q3")
+                          || a.getName.contains("06Q4")
+                          || a.getName.contains("06Q7")
+                          || a.getName.contains("06Q8")
+                          || a.getName.contains("06Q9")
+                          || a.getName.contains("06QD")
+                          || a.getName.contains("070W")
+                          || a.getName.contains("070X")) && !a.getName().contains("Repair")){
+                            val fos: FileOutputStream = new FileOutputStream( destinationDir + a.getName.split("/").last)
+                            val dest: BufferedOutputStream = new BufferedOutputStream( fos,
+                                BUFFERSIZE )
+                            processFileInTar( dest )
+                        }
                         processTar( tarIn )
+
                     case a: TarArchiveEntry => processTar( tarIn )
                 }
             }
 
+            val xzIn: XZCompressorInputStream = new XZCompressorInputStream( in )
+            val tarIn: TarArchiveInputStream = new TarArchiveInputStream( xzIn )
+            processTar( tarIn )
+            tarIn.close( )
+            println( "unxz completed successfully." )
 
-            //val gzIn: GzipCompressorInputStream = new GzipCompressorInputStream( in )
-            val tarIn: TarArchiveInputStream = new TarArchiveInputStream( in )
+        }
+        catch {
+            case ex: FileNotFoundException => {
+                // ex.printStackTrace()
+                println("===> FileNotFoundException !!!")
+            }
+        }
+    }
+
+    //parse tar file
+    def untarfile( in: InputStream, destinationDir: String ) {
+        try{
+            def processTar( tarIn: TarArchiveInputStream ): Unit = {
+                def processFileInTar( dest: BufferedOutputStream ): Unit = {
+                    val data = new Array[ Byte ]( BUFFERSIZE)
+                    val count = tarIn.read( data, 0, BUFFERSIZE )
+                    count match {
+                        case -1 =>
+                            dest.close( )
+                        case _ =>
+                            dest.write( data, 0, count )
+                            processFileInTar( dest )
+                    }
+                }
+                tarIn.getNextEntry.asInstanceOf[ TarArchiveEntry ]
+                match {
+                    case null =>
+                    case a: TarArchiveEntry if a.isDirectory =>
+                        val f: File = new File( a.getName )
+                        f.mkdirs( )
+                        processTar( tarIn )
+                    case a: TarArchiveEntry if a.isFile =>
+                        println( "Extracting: " + a.getName )
+                        if(a.getName.contains("WuDang")
+                            && (a.getName.contains("06MD")
+                            || a.getName.contains("06PK")
+                            || a.getName.contains("06PN")
+                            || a.getName.contains("06P4")
+                            || a.getName.contains("06PP")
+                            || a.getName.contains("06PS")
+                            || a.getName.contains("06PT")
+                            || a.getName.contains("06PV")
+                            || a.getName.contains("06PX")
+                            || a.getName.contains("06PY")
+                            || a.getName.contains("06PZ")
+                            || a.getName.contains("06Q2")
+                            || a.getName.contains("06Q3")
+                            || a.getName.contains("06Q4")
+                            || a.getName.contains("06Q7")
+                            || a.getName.contains("06Q8")
+                            || a.getName.contains("06Q9")
+                            || a.getName.contains("06QD")
+                            || a.getName.contains("070W")
+                            || a.getName.contains("070X")) && !a.getName().contains("Repair")){
+                            val fos: FileOutputStream = new FileOutputStream( destinationDir + a.getName.split("/").last)
+                            val dest: BufferedOutputStream = new BufferedOutputStream( fos,
+                                BUFFERSIZE )
+                            processFileInTar( dest )
+                        }
+                        processTar( tarIn )
+
+                    case a: TarArchiveEntry => processTar( tarIn )
+                }
+            }
+
+            val xzIn: XZCompressorInputStream = new XZCompressorInputStream( in )
+            val tarIn: TarArchiveInputStream = new TarArchiveInputStream( xzIn )
             processTar( tarIn )
             tarIn.close( )
             println( "untar completed successfully." )

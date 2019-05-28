@@ -28,7 +28,7 @@ object ParseFile{
     val datetimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.US)
 
     def main(args: Array[String]): Unit = {
-        val date = "12310107"
+        val date = "05130520"
         val spark = SparkSession.builder()
           .appName("Spark SQL basic example")
           .config("spark.master", "local")

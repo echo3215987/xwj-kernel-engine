@@ -91,3 +91,17 @@ log_prop:
 
 analysis:
     fail_condition: "2"
+
+test_floor_line:
+    F: "D621"
+    7: "D622"
+    B: "D623"
+    9: "D624"
+    8: "D625"
+    C: "D626"
+    G: "D631"
+    H: "D632"
+    Q: "D633"
+    N: "D634"
+    P: "D635"
+    D: "D636"
