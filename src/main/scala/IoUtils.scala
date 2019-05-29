@@ -463,7 +463,8 @@ object IoUtils {
                             || a.getName.contains("06Q9")
                             || a.getName.contains("06QD")
                             || a.getName.contains("070W")
-                            || a.getName.contains("070X")) && !a.getName().contains("Repair")){
+                            || a.getName.contains("070X"))
+                          && !a.getName().contains("Repair")){
                             val fos: FileOutputStream = new FileOutputStream( destinationDir + a.getName.split("/").last)
                             val dest: BufferedOutputStream = new BufferedOutputStream( fos,
                                 BUFFERSIZE )

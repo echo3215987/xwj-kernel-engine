@@ -12,7 +12,7 @@ import com.foxconn.iisd.bd.rca.utils.Summary
 import com.foxconn.iisd.bd.rca.utils.db._
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types._
+import org.apache.spark.sql.types.{StructField, _}
 import org.apache.spark.sql.Encoders
 import org.apache.log4j.Logger
 import org.apache.log4j.Level
@@ -60,6 +60,7 @@ object KernelEngine{
 
             Thread.sleep(5000)
         }*/
+        configLoader.setDefaultConfigPath("""conf/default.yaml""")
         KernelEngine.start()
     }
 
@@ -804,6 +805,7 @@ object KernelEngine{
                 .or(col("_RunResult").equalTo("Fail"))
             )
             CIMProjectResultsDF.show(25, false)
+
             val afterFilterCount = newCIMProjectResultsDF.count()
             if(originCount != afterFilterCount){
                 CIMProjectResultsDF = CIMProjectResultsDF.selectExpr("input_file_name() as filename")
@@ -821,11 +823,40 @@ object KernelEngine{
                 //removedCIMDF.show(false)
             }
 
+
+
+            val getFloorLine = udf {
+                s: String =>
+                    configLoader.getString("test_floor_line", "code_"+s)
+            }
+
             newCIMProjectResultsDF = newCIMProjectResultsDF.selectExpr("input_file_name() as filename", "_SerialNumber as SN",
-                    "_StationNumber as STATION_ID", "_RunResult as TEST_STATUS", "_RunDateTimeStarted as TEST_STARTTIME")
+                    "_StationNumber as STATION_ID", "_RunResult as TEST_STATUS", "_RunDateTimeStarted as TEST_STARTTIME_TEMP",
+                    "from_unixtime(UNIX_TIMESTAMP(_RunDateTimeStarted,'MM/dd/yyyy hh:mm:ss aa'), 'yyyy/MM/dd HH:mm') as TEST_STARTTIME",
+                    "_StationName as STATION_NAME", "_ProjectVersion as TEST_VERSION")
                 .withColumn("BUILD_NAME", lit("SOR"))
                 .withColumn("BUILD_DESCRIPTION", lit("SOR"))
                 .withColumn("UNIT_NUMBER", col("SN"))
+                .withColumn("TEST_PHASE", lit("MP"))
+                //.withColumn("MACHINE_ID", lit(null)) //不存就是null
+                .withColumn("FACTORY_CODE", lit("CQ"))
+                //取得floor_line對應碼, 利用STATION_ID的第二位數對應測試樓層跟線體
+                .withColumn("FLOOR_LINE", getFloorLine(col("STATION_ID").substr(2,1)))
+                .withColumn("FLOOR", col("FLOOR_LINE").substr(1,3))
+                .withColumn("LINE_ID", col("FLOOR_LINE").substr(4,1))
+                .withColumn("CREATE_TIME_BACKUP", expr("regexp_extract(filename, " +
+                        "'([A-Z]{3})_([0-9]+)_([0-9]{4})_([0-9]+h)_([0-9]+m)_([0-9]+s)', 0)"))
+                .withColumn("CREATE_TIME_TEMP", regexp_replace(regexp_replace(regexp_replace(regexp_extract(col("filename"),
+                    "([A-Z]{3})_([0-9]+)_([0-9]{4})_([0-9]+h)_([0-9]+m)_([0-9]+s)", 0), "h", ""),
+                    "m", ""), "s", ""))
+                /*.withColumn("UPDATE_TIME_TEMP", regexp_replace(regexp_replace(regexp_replace(regexp_extract(col("filename"),
+                        "([A-Z]{3})_([0-9]+)_([0-9]{4})_([0-9]+h)_([0-9]+m)_([0-9]+s)", 0), "h", ""),
+                    "m", ""), "s", ""))*/
+                .withColumn("CREATE_TIME",
+                    expr("from_unixtime(UNIX_TIMESTAMP(CREATE_TIME_TEMP, 'MMM_dd_yyyy_HH_mm_ss'), 'yyyy/MM/dd HH:mm')"))
+                .withColumn("UPDATE_TIME", col("CREATE_TIME"))
+                .withColumn("START_DATE", col("TEST_STARTTIME"))
+                .withColumn("PRODUCT", lit("TaiJi Base"))
 
             newCIMProjectResultsDF.show(25, false)
 
@@ -833,48 +864,60 @@ object KernelEngine{
               //.option("roootTag", "CIMProjectResults")
               .option("rowTag", "Sequence")
               .load("E:\\untar\\*.xml")
-            SequenceDF.show(25, false)
-            SequenceDF.selectExpr("explode(Step)").show(50, false)
+            //SequenceDF.show(25, false)
 
             SequenceDF = SequenceDF.selectExpr("input_file_name() as filename", "_SeqDateTimeStarted as TEST_ENDTIME")
+            //SequenceDF.show(25, false)
 
-            SequenceDF.show(25, false)
-
-            var StepDF = spark.read.text("E:\\untar\\*.xml")
+            /*var StepDF = spark.read.text("E:\\untar\\*.xml")
                             .selectExpr("input_file_name() as filename", "value")
                             .groupBy("filename").agg(concat_ws("", collect_list("value")).as("value"))
                             .selectExpr("split(value, '<Step') as Step", "filename")
                             .selectExpr("explode(Step) as Step", "filename")
                             .filter(col("Step").contains("StepName="))
-
+*/
             //取得測試失敗項目清單(CIMProjectResults.Sequence.Step.StepName 当 CIMProjectResults.Sequence.Step.（TestResult='Fail' or TestResult='Exception' ）),
             //取得測試失敗項目清單說明(CIMProjectResults.Sequence.Step.TestResultInfo 当 CIMProjectResults.Sequence.Step.（TestResult='Fail' or TestResult='Exception' ）)
-           // var StepFailureListDF = StepDF.withColumn("_StepName", regexp_extract($"Step","StepName=",1))
-                /*.groupBy("filename").agg(concat_ws(";", collect_list("_StepName")).as("_StepName"),
-                concat_ws(";", collect_list("_TestResultInfo")).as("_TestResultInfo"))
-*/
+            val stepSchema =
+            StructType(
+                Array(
+                    StructField("_GUIResponseTime", StringType),
+                    StructField("_StepDescription", StringType),
+                    StructField("_StepName", StringType),
+                    StructField("_StepNumber", StringType),
+                    StructField("_TestAsset", StringType),
+                    StructField("_TestDateTimeStarted", StringType),
+                    StructField("_TestElapsedTimeSec", StringType),
+                    StructField("_TestResult", StringType),
+                    StructField("_TestResultInfo", StringType),
+                    StructField("_TestRetryCount", StringType),
+                    StructField("_TestType", StringType)
+                )
+            )
+
+            var StepDF = spark.read.format("com.databricks.spark.xml")
+              .option("rootTag", "CIMProjectResults")
+              .option("rowTag", "Step")
+              .schema(stepSchema)
+              .load("E:\\untar\\*.xml")
+            //StepDF.show(5, false)
+
+            val StepFailureListDF = StepDF.selectExpr("_TestResult","_StepName", "_TestResultInfo", "input_file_name() as filename")
+                .groupBy("filename").agg(concat_ws(";", collect_list("_StepName")).as("LIST_OF_FAILURE"),
+                concat_ws(";", collect_list("_TestResultInfo")).as("LIST_OF_FAILURE_DETAIL"))
+           //StepFailureListDF.show(5, false)
 
 
 
-            StepDF.show(5, false)
-            //StepFailureListDF.show(5, false)
+
 
             var TestParmDF = spark.read.format("com.databricks.spark.xml")
               //.option("roootTag", "CIMProjectResults")
               .option("rowTag", "TestParm")
               .load("E:\\untar\\*.xml")
 
-            TestParmDF.show(false)
 
-/*
-            var Step_LIST_OF_FAILURE_DF = StepDF.selectExpr("input_file_name() as filename", "_TestResult", "_StepName", "_TestResultInfo")
-                .filter(col("_TestResult").equalTo("Fail").or(col("_TestResult").equalTo("Exception")))
-                .groupBy(col("filename")).agg(concat_ws(";", collect_list("_StepName")).as("_StepName"),
-                concat_ws(";", collect_list("_TestResultInfo")).as("_TestResultInfo"))
-            Step_LIST_OF_FAILURE_DF.show(25, false)
-*/
-
-            CIMProjectResultsDF.printSchema()
+            //CIMProjectResultsDF.printSchema()
 
             val datalogSchema =
                 StructType(
@@ -888,9 +931,33 @@ object KernelEngine{
                             ))
                         ),*/
                         //StructField("DataLog", ArrayType(StringType)),
-                        StructField("DataLog", StructType(Array(
+                        //StructField("DataLog", StringType),
+                        /*StructField("DataLog", StructType(Array(
                             StructField("PayLoad",  ArrayType(StringType))
+                        ))),*/
+                        StructField("DataLog", ArrayType(
+                            StructType(Array(
+                                StructField("PayLoad", ArrayType(StringType)
+                            ))
                         ))),
+                        /*
+                                StructField("ResultInfo", StringType),
+                                StructField("_ActualFWUpdate", StringType),
+                                StructField("_Application", StringType),
+                                StructField("_CIMationVersion", StringType),
+                                StructField("_CallStack", StringType),
+                          */
+                        StructField("TestParms", ArrayType(StructType(Array(
+                            StructField("PayLoad", ArrayType(StructType(Array(
+                                StructField("ResultInfo", StringType),
+                                StructField("_ActualFWUpdate", StringType),
+                                StructField("_Application", StringType),
+                                StructField("_CIMationVersion", StringType),
+                                StructField("_CallStack", StringType)
+                            )))),
+                            StructField("TestParm", StringType),
+                            StructField("_StepDescription", StringType)
+                        )))),
                         StructField("_GUIResponseTime", StringType),
                         StructField("_StepDescription", StringType),
                         StructField("_StepName", StringType),
@@ -905,22 +972,7 @@ object KernelEngine{
                     )
                 )
 
-            val stepSchema =
-                StructType(
-                    Array(
-                        StructField("_GUIResponseTime", StringType),
-                        StructField("_StepDescription", StringType),
-                        StructField("_StepName", StringType),
-                        StructField("_StepNumber", StringType),
-                        StructField("_TestAsset", StringType),
-                        StructField("_TestDateTimeStarted", StringType),
-                        StructField("_TestElapsedTimeSec", StringType),
-                        StructField("_TestResult", StringType),
-                        StructField("_TestResultInfo", StringType),
-                        StructField("_TestRetryCount", StringType),
-                        StructField("_TestType", StringType)
-                    )
-                )
+
 
             val sequenceSchema =
                 StructType(
@@ -953,11 +1005,12 @@ object KernelEngine{
                 )
 
             var cc = spark.read.format("com.databricks.spark.xml")
-              .option("rowTag", "Step")
+              .option("rootTag", "CIMProjectResults")
+              .option("rowTag", "DataLog")
               .schema(datalogSchema)
               .load("E:\\untar\\*.xml")
-            cc.show(false)
-
+            //cc.show(false)
+            //cc.printSchema()
             date = new java.util.Date()
 
             /*val jobEndTime: String = new SimpleDateFormat(configLoader.getString("summary_log_path","job_fmt"))
