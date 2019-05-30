@@ -50,14 +50,10 @@ libraryDependencies ++= Seq(
     "org.apache.hadoop" % "hadoop-common" % hadoopVersion,
     "org.apache.hadoop" % "hadoop-aws" % hadoopVersion,
     //unarchive xz file
-    //"io.sensesecure" % "hadoop-xz" % "1.4",
     "com.databricks" %% "spark-xml" % "0.5.0",
     "org.apache.commons" % "commons-compress" % "1.18"
 
-
 )
-
-//libraryDependencies += "io.sensesecure" % "hadoop-xz" % "1.4"
 
 assemblyMergeStrategy in assembly := {
     case PathList("META-INF", xs@_*) =>
@@ -80,8 +76,13 @@ assemblyMergeStrategy in assembly := {
         }
     case PathList(ps @ _*)
         if ps contains "foxconn" => MergeStrategy.first
+    case PathList(ps @ _*)
+        if ps contains "databricks" => MergeStrategy.first
+    case PathList(ps @ _*)
+        if ps.startsWith("org/apache/commons/") => MergeStrategy.first
     case x =>
         MergeStrategy.discard
+        //MergeStrategy.first
 }
 
 //artifact in (Compile, packageBin) := {

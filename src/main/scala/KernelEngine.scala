@@ -798,7 +798,8 @@ object KernelEngine{
 
             var CIMProjectResultsDF = spark.read.format("com.databricks.spark.xml")
                 .option("rowTag", "CIMProjectResults")
-                .load("E:\\untar\\*.xml")
+                //.load("E:\\untar\\*.xml")
+                .load("C:\\Users\\foxconn\\Desktop\\RCA\\ask\\new\\newspec_subSeq_PRNU_SiriusFW\\*.xml")
             val originCount = CIMProjectResultsDF.count()
             var newCIMProjectResultsDF = CIMProjectResultsDF.filter(col("_RunResult").equalTo("Exception")
                 .or(col("_RunResult").equalTo("Pass"))
@@ -831,7 +832,7 @@ object KernelEngine{
             }
 
             newCIMProjectResultsDF = newCIMProjectResultsDF.selectExpr("input_file_name() as filename", "_SerialNumber as SN",
-                    "_StationNumber as STATION_ID", "_RunResult as TEST_STATUS", "_RunDateTimeStarted as TEST_STARTTIME_TEMP",
+                    "_StationNumber as STATION_ID", "_RunResult as TEST_STATUS", //"_RunDateTimeStarted as TEST_STARTTIME_TEMP",
                     "from_unixtime(UNIX_TIMESTAMP(_RunDateTimeStarted,'MM/dd/yyyy hh:mm:ss aa'), 'yyyy/MM/dd HH:mm') as TEST_STARTTIME",
                     "_StationName as STATION_NAME", "_ProjectVersion as TEST_VERSION")
                 .withColumn("BUILD_NAME", lit("SOR"))
@@ -849,9 +850,6 @@ object KernelEngine{
                 .withColumn("CREATE_TIME_TEMP", regexp_replace(regexp_replace(regexp_replace(regexp_extract(col("filename"),
                     "([A-Z]{3})_([0-9]+)_([0-9]{4})_([0-9]+h)_([0-9]+m)_([0-9]+s)", 0), "h", ""),
                     "m", ""), "s", ""))
-                /*.withColumn("UPDATE_TIME_TEMP", regexp_replace(regexp_replace(regexp_replace(regexp_extract(col("filename"),
-                        "([A-Z]{3})_([0-9]+)_([0-9]{4})_([0-9]+h)_([0-9]+m)_([0-9]+s)", 0), "h", ""),
-                    "m", ""), "s", ""))*/
                 .withColumn("CREATE_TIME",
                     expr("from_unixtime(UNIX_TIMESTAMP(CREATE_TIME_TEMP, 'MMM_dd_yyyy_HH_mm_ss'), 'yyyy/MM/dd HH:mm')"))
                 .withColumn("UPDATE_TIME", col("CREATE_TIME"))
@@ -860,22 +858,31 @@ object KernelEngine{
 
             newCIMProjectResultsDF.show(25, false)
 
-            var SequenceDF = spark.read.format("com.databricks.spark.xml")
-              //.option("roootTag", "CIMProjectResults")
-              .option("rowTag", "Sequence")
-              .load("E:\\untar\\*.xml")
-            //SequenceDF.show(25, false)
+            val get_last = udf((xs: Seq[String]) => (xs.last))
 
-            SequenceDF = SequenceDF.selectExpr("input_file_name() as filename", "_SeqDateTimeStarted as TEST_ENDTIME")
-            //SequenceDF.show(25, false)
+            var SequenceDF = spark.read.text("C:\\Users\\foxconn\\Desktop\\RCA\\ask\\new\\newspec_subSeq_PRNU_SiriusFW\\*.xml")
+                  .withColumn("filename", get_last(split(expr("input_file_name()"), "/")))
+                  .groupBy("filename").agg(concat_ws("", collect_list("value")).as("value"))
+                  .selectExpr("split(value, '<Sequence') as Sequence", "filename")
+                  .selectExpr("explode(Sequence) as Sequence", "filename")
+                  .filter(col("Sequence").contains("SeqDateTimeStarted=\""))
+                  .withColumn("TEST_ENDTIME_TEMP",
+                        regexp_extract(col("Sequence"),
+                            "SeqDateTimeStarted=\"([0-9]+)/([0-9]+)/([0-9]{4})(\\s)([0-9]+):([0-9]+):([0-9]+)(\\s)([A-Z]{2})\"", 0))  //"5/28/2019 2:41:10 PM"
+                  .withColumn("TEST_ENDTIME", split(col("TEST_ENDTIME_TEMP"), "\"").getItem(1))
+            SequenceDF.show(false)
+            SequenceDF = SequenceDF.selectExpr("filename", //"_SeqDateTimeStarted as TEST_ENDTIME_TEMP",
+                "from_unixtime(UNIX_TIMESTAMP(TEST_ENDTIME,'MM/dd/yyyy hh:mm:ss aa'), 'yyyy/MM/dd HH:mm') as TEST_ENDTIME")
+              .groupBy(col("filename")).agg(max("TEST_ENDTIME").as("TEST_ENDTIME"))
 
-            /*var StepDF = spark.read.text("E:\\untar\\*.xml")
-                            .selectExpr("input_file_name() as filename", "value")
-                            .groupBy("filename").agg(concat_ws("", collect_list("value")).as("value"))
-                            .selectExpr("split(value, '<Step') as Step", "filename")
-                            .selectExpr("explode(Step) as Step", "filename")
-                            .filter(col("Step").contains("StepName="))
-*/
+            newCIMProjectResultsDF = newCIMProjectResultsDF.withColumn("filename_temp", get_last(split(col("filename"), "/")))
+
+            newCIMProjectResultsDF = newCIMProjectResultsDF.join(SequenceDF,
+                SequenceDF.col("filename") === newCIMProjectResultsDF.col("filename_temp"), "inner")
+            SequenceDF.show(false)
+            newCIMProjectResultsDF.show(false)
+
+
             //取得測試失敗項目清單(CIMProjectResults.Sequence.Step.StepName 当 CIMProjectResults.Sequence.Step.（TestResult='Fail' or TestResult='Exception' ）),
             //取得測試失敗項目清單說明(CIMProjectResults.Sequence.Step.TestResultInfo 当 CIMProjectResults.Sequence.Step.（TestResult='Fail' or TestResult='Exception' ）)
             val stepSchema =
@@ -900,13 +907,32 @@ object KernelEngine{
               .option("rowTag", "Step")
               .schema(stepSchema)
               .load("E:\\untar\\*.xml")
+              //.load("C:\\Users\\foxconn\\Desktop\\RCA\\ask\\new\\newspec_subSeq_PRNU_SiriusFW\\*.xml")
             //StepDF.show(5, false)
 
-            val StepFailureListDF = StepDF.selectExpr("_TestResult","_StepName", "_TestResultInfo", "input_file_name() as filename")
+            val StepFailureListDF = StepDF.selectExpr("_TestResult", "_StepName", "_TestResultInfo")
+                .filter(col("_TestResult").equalTo("Fail").or(col("_TestResult").equalTo("Exception")))
+                .withColumn("filename", get_last(split(input_file_name(), "/")))
                 .groupBy("filename").agg(concat_ws(";", collect_list("_StepName")).as("LIST_OF_FAILURE"),
                 concat_ws(";", collect_list("_TestResultInfo")).as("LIST_OF_FAILURE_DETAIL"))
-           //StepFailureListDF.show(5, false)
+            newCIMProjectResultsDF = newCIMProjectResultsDF.join(StepFailureListDF,
+                StepFailureListDF.col("filename") === newCIMProjectResultsDF.col("filename_temp"), "inner")
 
+
+            StepFailureListDF.show(25, false)
+            newCIMProjectResultsDF.show(25, false)
+
+            //測試項目
+
+
+
+            /*var StepDF = spark.read.text("E:\\untar\\*.xml")
+                            .selectExpr("input_file_name() as filename", "value")
+                            .groupBy("filename").agg(concat_ws("", collect_list("value")).as("value"))
+                            .selectExpr("split(value, '<Step') as Step", "filename")
+                            .selectExpr("explode(Step) as Step", "filename")
+                            .filter(col("Step").contains("StepName="))
+*/
 
 
 
@@ -973,7 +999,6 @@ object KernelEngine{
                 )
 
 
-
             val sequenceSchema =
                 StructType(
                     Array(
@@ -984,6 +1009,7 @@ object KernelEngine{
                         StructField("_SeqResult", StringType)
                     )
                 )
+
 
             val resultSchema =
                 StructType(
