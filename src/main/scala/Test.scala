@@ -1,70 +1,60 @@
-package com.foxconn.iisd.bd.rca
-
 import java.io.FileNotFoundException
-import java.text.SimpleDateFormat
-import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 import com.foxconn.iisd.bd.config.ConfigLoader
+import com.foxconn.iisd.bd.rca.XWJKernelEngine.configLoader
 import com.foxconn.iisd.bd.rca.utils.IoUtils
-import com.foxconn.iisd.bd.rca.utils.Summary
-import com.foxconn.iisd.bd.rca.utils.db._
-import com.foxconn.iisd.bd.rca.SparkUDF._
-import org.apache.spark.sql.expressions.Window
-import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.{StructField, _}
-import org.apache.spark.sql.Encoders
-import org.apache.log4j.Logger
-import org.apache.log4j.Level
+import org.apache.log4j.{Level, Logger}
 import org.apache.spark.sql.SparkSession
-import org.apache.spark.storage.StorageLevel
-import java.nio.file.{Files, Paths}
+import org.apache.spark.sql.functions._
 
-import org.apache.commons.io.FileUtils
-import java.io.File
+import scala.collection.mutable.Seq
 
-import com.mysql.cj.x.protobuf.MysqlxDatatypes.Scalar
-import org.apache.avro.generic.GenericData
-
-import scala.collection.mutable._
-
-
-object XWJKernelEngine{
+object Test{
 
     var configLoader = new ConfigLoader()
     val datetimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.US)
 
     def main(args: Array[String]): Unit = {
 
-        val limit = 1
-        var count = 0
+        /*val spark = SparkSession.builder()
+          .appName("Spark SQL basic example")
+          .config("spark.master", "local")
+          .getOrCreate()
 
-        println("xyj-kernel-engine-v1:")
+        spark.sparkContext.setLogLevel("ERROR")*/
+/*
+        var test = Vector("SpecRedNomCh123_Bits8.1=1", "SpecMaxChipTolFromNom_Bits8=2", "SpecMaxChipTolFromNom_Bits7=3")
 
-        while(count < limit) {
-            println(s"count: $count")
+        var upperValue = test.filter(testparm=> testparm.contains("SpecRedNomCh123_Bits8.1")).mkString.split("=")(1).toFloat
+        var upperSub = test.filter(testparm=> testparm.contains("SpecMaxChipTolFromNom_Bits8")).mkString.split("=")(1).toFloat
 
-            try {
-                configLoader.setDefaultConfigPath("""conf/default.yaml""")
-                if(args.length == 1) {
-                    configLoader.setDefaultConfigPath(args(0))
-                }
-                XWJKernelEngine.start()
-            } catch {
-                case ex: Exception => {
-                    ex.printStackTrace()
+        println(upperValue)
+        println(upperSub)
+        println(upperValue-upperSub)
+
+        //var test = Vector("SpecRedNomCh123_Bits8.1=1", "SpecMaxChipTolFromNom_Bits8=2", "SpecMaxChipTolFromNom_Bits7=3")
+
+
+        var cc = spark.read.option("header", "true").csv("C:\\Users\\foxconn\\Desktop\\cc.csv")
+        cc.withColumn("test", getSpec(col("item"), col("compare")))
+        def getSpec = udf {
+            (item: String, compare: Seq[String]) => item  match {
+                case "PcaVerifyFirmwareRev^DReadVersion" => {
+                    //var upper = compare.filter(testparm => testparm.contains("ValidFWRevs")).mkString.split("=")(1)
+                    var upper = getSpecBoundary(compare, "ValidFWRevs")
+                    var lower = upper
+                    Vector(upper, lower)
                 }
             }
 
-            count = count + 1
-
-            Thread.sleep(5000)
         }
 
-    }
-
-    def start(): Unit = {
+        def getSpecBoundary(compare: Seq[String], spec: String): String = {
+            compare.filter(testparm => testparm.contains(spec)).mkString.split("=")(1)
+        }
+*/
 
         var date: java.util.Date = new java.util.Date()
         val flag = date.getTime().toString
@@ -72,7 +62,7 @@ object XWJKernelEngine{
             configLoader.getString("summary_log_path","job_fmt")).format(date.getTime())
         println("job start time : " + jobStartTime)
         Summary.setJobStartTime(jobStartTime)
-*/
+*/      configLoader.setDefaultConfigPath("""conf/default.yaml""")
         println(s"flag: $flag"+": xwj")
 
         Logger.getLogger("org").setLevel(Level.OFF)
@@ -101,6 +91,7 @@ object XWJKernelEngine{
 
         configLoader.setConfig2SparkAddFile(spark)
 
+        //parse data
         var logPathSection = "local_log_path"
         val isFromMinio = configLoader.getString("general", "from_minio").toBoolean
         println("isFromMinio : " + isFromMinio)
@@ -118,18 +109,8 @@ object XWJKernelEngine{
             spark.sparkContext.hadoopConfiguration.set("fs.s3a.access.key", accessKey)
             spark.sparkContext.hadoopConfiguration.set("fs.s3a.secret.key", secretKey)
         }
-
-        import spark.implicits._
-
-        val numExecutors = spark.conf.get("spark.executor.instances", "1").toInt
-
-        //val factory = configLoader.getString("general", "factory")
-
-        //val failCondition: Int = configLoader.getString("analysis", "fail_condition").toInt
-
-        //s3a://" + bucket + "/
         val testDetailPath = configLoader.getString(logPathSection, "test_detail_path")
-println(testDetailPath)
+        println(testDetailPath)
         val testDetailFileLmits = configLoader.getString(logPathSection, "test_detail_file_limits").toInt
 
         //"sn,build_name,build_description,unit_number,station_id,test_status,test_starttime,test_endtime,list_of_failure,list_of_failure_detail,test_phase,machine_id,factory_code,floor,line_id,test_item,test_value,test_unit,test_lower,test_upper,create_time,update_time,station_name,start_date,product,test_version"
@@ -142,17 +123,11 @@ println(testDetailPath)
         ///////////
 
         try {
-            /*val testDetailDestPath = IoUtils.flatMinioFiles(spark,
-                flag,
-                testDetailPath,
-                testDetailFileLmits)
-
-            var testDetailSourceDf = IoUtils.getDfFromPath(spark, testDetailDestPath.toString, testDetailColumns, dataSeperator)*/
-            val testDetailDestPath = testDetailPath
+            val testDetailDestPath = "C:/Users/foxconn/Desktop/RCA/ask/.txt/*.txt"
             var testDetailSourceDf = IoUtils.getDfFromPath(spark, testDetailDestPath.toString, testDetailColumns, dataSeperator)
 
-
-            //for test
+            //"sn,build_name,build_description,unit_number,station_id,test_status,test_starttime,test_endtime,list_of_failure,list_of_failure_detail,test_phase,machine_id,factory_code,
+            // floor,line_id,test_item,test_value,test_unit,test_lower,test_upper,create_time,update_time,station_name,start_date,product,test_version"
             testDetailSourceDf.select("sn").show(false)
             testDetailSourceDf.select("build_name").show(false)
             testDetailSourceDf.select("build_description").show(false)
@@ -160,7 +135,7 @@ println(testDetailPath)
             testDetailSourceDf.select("station_id").show(false)
             testDetailSourceDf.select("test_status").show(false)
             testDetailSourceDf.select("test_starttime").show(false)
-            testDetailSourceDf.select("test_endtime").show(false)
+            testDetailSourceDf.select("test_starttime").show(false)
             testDetailSourceDf.select("list_of_failure").show(false)
             testDetailSourceDf.select("list_of_failure_detail").show(false)
             testDetailSourceDf.select("test_phase").show(false)
@@ -176,61 +151,13 @@ println(testDetailPath)
             testDetailSourceDf.select("product").show(false)
             testDetailSourceDf.select("test_version").show(false)
 
-
-/*
-            //val testDetailSourceDfCnt = testDetailSourceDf.count()
-
-            testDetailSourceDf = testDetailSourceDf.distinct()
-              //.withColumn("product", regexp_replace($"product", "\t", " ")
-              .withColumn("test_starttime",
-                unix_timestamp(trim($"test_starttime"),
-                    configLoader.getString("log_prop", "test_detail_dt_fmt")).cast(TimestampType))
-              .withColumn("test_endtime",
-                  unix_timestamp(trim($"test_endtime"),
-                      configLoader.getString("log_prop", "test_detail_dt_fmt")).cast(TimestampType))
-              .withColumn("create_time",
-                  unix_timestamp(trim($"create_time"),
-                      configLoader.getString("log_prop", "test_detail_dt_fmt")).cast(TimestampType))
-              .withColumn("start_date",
-                  unix_timestamp(trim($"start_date"),
-                      configLoader.getString("log_prop", "test_detail_dt_fmt")).cast(TimestampType))
-              .withColumn("test_item", split(regexp_replace(trim($"test_item"), "\004", "\004"), "\001"))
-
-              //.withColumn("test_value", parseArrayToJSON(split(trim($"test_value"), "\001")))
-              //.withColumn("test_upper", to_json(split(trim($"test_upper"), "\001")))
-              //.withColumn("test_lower", to_json(split(trim($"test_lower"), "\001")))
-              //.withColumn("test_unit", to_json(split(trim($"test_unit"), "\001")))
-              .withColumn("test_value", lit("’\"name\": \"Paint house\", \"tags\": [\"Improvements\", \"Office\"], \"finished\": true}’"))
-            .withColumn("test_upper", lit("’{\"name\": \"Paint house\", \"tags\": [\"Improvements\", \"Office\"], \"finished\": true}’"))
-            .withColumn("test_lower",lit("’{\"name\": \"Paint house\", \"tags\": [\"Improvements\", \"Office\"], \"finished\": true}’"))
-            .withColumn("test_unit", lit("\"name\": \"Paint house\", \"tags\": [\"Improvements\", \"Office\"], \"finished\": true}’"))
-
-            //df.withColumn("MapVal", map(lit(0), col("Val")))
-
-              .persist(StorageLevel.MEMORY_AND_DISK_SER_2)
-
-            val testDetailSourceDfDistCnt = testDetailSourceDf.count()
-
-            //TODO: summary file
-            //Summary.setMasterFilesNameList(IoUtils.getFilesNameList(spark, testDetailDestPath))
-            testDetailSourceDf.select("test_value").show(false)
-            testDetailSourceDf.printSchema()
-            //將資料儲存進Cockroachdb
-            println("saveToCockroachdb --> testDetailSourceDf")
-           IoUtils.saveToCockroachdb(testDetailSourceDf,
-                configLoader.getString("log_prop", "test_detail_table"),
-                numExecutors)
-*/
-
-
-
-
-        } catch {
-            case ex: FileNotFoundException => {
+        }catch{
+            case ex: Exception => {
                 // ex.printStackTrace()
-                println("===> FileNotFoundException !!!")
+                println("===> Exception !!!")
             }
         }
+
     }
 
 }

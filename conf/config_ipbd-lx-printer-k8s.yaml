@@ -1,5 +1,5 @@
 spark:
-    job_name: "ipbd-lx-printer-KernelEngine"
+    job_name: "ipbd-lx-printer-xwj-KernelEngine"
     master: "k8s://https://192.168.1.60:8443"
 
 minio:
@@ -54,6 +54,9 @@ local_log_path:
     wip_parts_file_limits: "30"
     bobcat_file_limits: "0"
 
+    test_detail_path: "{{data_base_path}}/part-00000-698d0746-eff6-426e-9611-3c71a96a100a-c000.txt"
+    test_detail_file_limits: "1"
+
 minio_log_path:
     data_base_path: "s3a://rca/IPPD-L10/Data"
     wip_path: "{{data_base_path}}/SFC/R_WIP_SFC/"
@@ -62,6 +65,9 @@ minio_log_path:
     wip_file_limits: "300"
     wip_parts_file_limits: "300"
     bobcat_file_limits: "30"
+
+    test_detail_path: "{{data_base_path}}/TEST_DETAIL"
+    test_detail_file_limits: "1"
 
 log_prop:
     #CN8BJ7C2G1_||_CN8BJ7C2G1_||_296200140_||_V1N03B#629_||_V1N03B#629_||_Main   B_||_2018-11-19 13:39:07.467_||__||__||_TaiJi   Base_||_D626
@@ -78,7 +84,34 @@ log_prop:
     bobcat_table: "test"
     bobcat_dt_fmt: "yyyy-MM-dd HH:mm:ss"
 
+    #CN95I870ZC06MD_||_SOR_||_SOR_||_CN95I870ZC06MD_||_L7_TLEOL_06_||_Exception_||_2019/05/18 06:36_||_2019/05/18 06:36_||_PcaVerifyFirmwareRev_||_Error_||_MP_||__||_CQ_||_D62_||_2_||_ProcPCClockSync^DResultInfo^APcaVerifyFirmwareRev^DResultInfo^APcaVerifyFirmwareRev^DExpectedVersion^APcaVerifyFirmwareRev^DReadVersion^APcaVerifyFirmwareRev^DDateTimeStarted^APcaVerifyFirmwareRev^DActualFWUpdate^APcaVerifyFirmwareRev^DFWUpdateDSIDFirst_||_ProcPCClockSync^DResultInfo^C^APcaVerifyFirmwareRev^DResultInfo^C^APcaVerifyFirmwareRev^DExpectedVersion^C^APcaVerifyFirmwareRev^DReadVersion^C^APcaVerifyFirmwareRev^DDateTimeStarted^C5/18/2019 5:29:48 AM^APcaVerifyFirmwareRev^DActualFWUpdate^C^APcaVerifyFirmwareRev^DFWUpdateDSIDFirst^C_||_ProcPCClockSync^DResultInfo^C^APcaVerifyFirmwareRev^DResultInfo^C^APcaVerifyFirmwareRev^DExpectedVersion^C^APcaVerifyFirmwareRev^DReadVersion^C^APcaVerifyFirmwareRev^DDateTimeStarted^C^APcaVerifyFirmwareRev^DActualFWUpdate^C^APcaVerifyFirmwareRev^DFWUpdateDSIDFirst^C_||_ProcPCClockSync^DResultInfo^C^APcaVerifyFirmwareRev^DResultInfo^C^APcaVerifyFirmwareRev^DExpectedVersion^C^APcaVerifyFirmwareRev^DReadVersion^CTJP1FN1845AR^APcaVerifyFirmwareRev^DDateTimeStarted^C^APcaVerifyFirmwareRev^DActualFWUpdate^C169^APcaVerifyFirmwareRev^DFWUpdateDSIDFirst^C_||_ProcPCClockSync^DResultInfo^C^APcaVerifyFirmwareRev^DResultInfo^C^APcaVerifyFirmwareRev^DExpectedVersion^C^APcaVerifyFirmwareRev^DReadVersion^CTJP1FN1845AR^APcaVerifyFirmwareRev^DDateTimeStarted^C^APcaVerifyFirmwareRev^DActualFWUpdate^C169^APcaVerifyFirmwareRev^DFWUpdateDSIDFirst^C_||_2019/05/18 06:36_||_2019/05/18 06:36_||_TLEOL_||_2019/05/18 06:36_||_TaiJi Base_||_42.3.8 REV_37_Taiji25
+    test_detail_col: "sn,build_name,build_description,unit_number,station_id,test_status,test_starttime,test_endtime,list_of_failure,list_of_failure_detail,test_phase,machine_id,factory_code,floor,line_id,test_item,test_value,test_unit,test_lower,test_upper,create_time,update_time,station_name,start_date,product,test_version"
+    test_detail_table: "test_detail"
+    test_detail_dt_fmt: "yyyy-MM-dd HH:mm:ss"
+
     log_seperator: "_\\|\\|_"
 
 analysis:
     fail_condition: "2"
+
+test_floor_line:
+    code_5: "D713"
+    code_D714: "D714"
+    code_T: "D721"
+    code_4: "D722"
+    code_6: "D723"
+    code_F: "D621"
+    code_7: "D622"
+    code_B: "D623"
+    code_9: "D624"
+    code_8: "D625"
+    code_C: "D626"
+    code_G: "D631"
+    code_H: "D632"
+    code_Q: "D633"
+    code_N: "D634"
+    code_P: "D635"
+    code_D: "D636"
+
+taiji_base:
+    code: "06MD,06PK,06PN,06P4,06PP,06PS,06PT,06PV,06PX,06PY,06PZ,06Q2,06Q3,06Q4,06Q7,06Q8,06Q9,06QD,070W,070X"

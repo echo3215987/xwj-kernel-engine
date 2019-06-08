@@ -7,6 +7,7 @@ import java.util.Locale
 import com.foxconn.iisd.bd.config.ConfigLoader
 import com.foxconn.iisd.bd.rca.utils.{IoUtils, Summary}
 import com.foxconn.iisd.bd.rca.utils.db._
+import com.foxconn.iisd.bd.rca.Analyzer
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.expressions.Window
@@ -50,7 +51,7 @@ object KernelEngineBackup{
     }
 
     def start(): Unit = {
-/*
+
         var date: java.util.Date = new java.util.Date();
         val flag = date.getTime().toString
         val jobStartTime: String = new SimpleDateFormat(
@@ -779,7 +780,7 @@ object KernelEngineBackup{
                 println("===> FileNotFoundException !!!")
             }
         }
-      */
+
     }
 
 }

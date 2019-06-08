@@ -1,48 +1,56 @@
+package com.foxconn.iisd.bd.rca
+
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-import com.foxconn.iisd.bd.config.ConfigLoader
+import com.foxconn.iisd.bd.rca.XWJKernelEngine.configLoader
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions._
 
-object CheckItem{
+import scala.collection.mutable.Seq
 
-    var configLoader = new ConfigLoader()
-    val datetimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.US)
+object SparkUDF{
 
-    def main(args: Array[String]): Unit = {
-        val date = "01140121"
-        val olddate = "02110218"
-        val spark = SparkSession.builder()
-          .appName("Spark SQL basic example")
-          .config("spark.master", "local")
-          //.config("io.compression.codecs","io.sensesecure.hadoop.xz.XZCodec")
-          .getOrCreate()
+    //取split最後一個element
+    def getLast = udf((xs: Seq[String]) => (xs.last))
+    //取得測試樓層與線體對應表
+    def getFloorLine = udf {
+        s: String =>
+            configLoader.getString("test_floor_line", "code_"+s)
+    }
+    //parse array to json
+    def parseArrayToJSON = udf {
+        itemValue: Seq[String] =>{
+            itemValue.map{ _.split("\003") }
 
-        spark.sparkContext.setLogLevel("ERROR")
-
-        /*val df = spark.read.textFile("C:\\Users\\foxconn\\Desktop\\vfpa_trans_fail_list_20190513-20190520.tar")
-        df.show(false)
-        println(df.count())
+/*
+            item.foldLeft("") { (key:String, idx:String) =>
+                key match {
+                    case _ => {
+                        println(key)
+                        println(idx)
+                        key + ":" + itemValue(idx.toInt) + ";"
+                    }
+                }
+            }.mkString(",")
 */
-        var df = spark.read
-            .text("C:\\Users\\foxconn\\Desktop\\TaijiBase\\TaijiBase_"+date+"\\*.xml")
-        df = df.filter(col("value").contains("StepName=\""))
-        df = df.selectExpr("split(split(value, 'StepName=\"')[1], '\"')[0] as item", "input_file_name() as filename")
-                .selectExpr("trim(item) as item", "filename")
-       /* df = df.selectExpr("input_file_name() as filename", "value")
-          .groupBy("filename").agg(concat_ws("", collect_list("value")).as("value"))
-        df = df.selectExpr("split(value, 'StepName=\"') as split_array")*/
-        //df = df.selectExpr("explode(split_array) as item").
-        df.show(false)
-        var item = spark.read.option("header", "true")
-          //.csv("C:\\Users\\foxconn\\Desktop\\item.txt")
-            .csv("C:\\Users\\foxconn\\Desktop\\item\\item_"+olddate+".csv")
+            /*
+            item.map({
+                ele =>
+                    var idx = 0
+                    println(idx)
+                    var group = ele +  ":" + value(idx) + ";"
+                    allStr = allStr + group
+                    idx = idx + 1
+            }).mkString(",")*/
+            /*item.foldLeft("")
+            { (ele, idx) =>
+                var group = ele + ":" + value(idx.toInt) +";"
+                allStr = allStr + group
+            }*/
 
-        //item = item.join(df, col("_c0").equalTo(col("item")),"outer").dropDuplicates("item", "_c0")
-        item = item.union(df).dropDuplicates("item")
-        item.show(false)
-        item.coalesce(1).write.option("header", "true").csv("C:\\Users\\foxconn\\Desktop\\item\\item_"+date)
+            //allStr = "{" + allStr + "}"
+        }
 
     }
 
