@@ -18,40 +18,39 @@ object SparkUDF{
         s: String =>
             configLoader.getString("test_floor_line", "code_"+s)
     }
-    //parse array to json
-    def parseArrayToJSON = udf {
-        itemValue: Seq[String] =>{
-            itemValue.map{ _.split("\003") }
+    //parse array to string
+    def parseArrayToString = udf {
+        itemValue: Seq[String] => {
+            itemValue.map {
+                _.replace("\004", "^D")
+                .mkString("'", "", "'")
+            }
+        }.mkString(",")
+    }
 
-/*
-            item.foldLeft("") { (key:String, idx:String) =>
-                key match {
-                    case _ => {
-                        println(key)
-                        println(idx)
-                        key + ":" + itemValue(idx.toInt) + ";"
+    //parse string to json string
+    def parseStringToJSONString = udf {
+        itemValue: Seq[String] => {
+            itemValue.map {
+                ele => {
+                    var newString = ""
+                    var eleArray = ele.split("\003")
+                    eleArray.map {
+                        nEleArray => {
+                            newString = newString + nEleArray.mkString("\"", "", "\"")
+                            if (nEleArray.indexOf("\004") != -1) {
+                               newString = newString + ":"
+                            }
+                        }
+                        if (eleArray.size == 1) {
+                            newString = newString + null
+                        }
                     }
+                    val newele = newString
+                    newele.replace("\004", "^D")
                 }
-            }.mkString(",")
-*/
-            /*
-            item.map({
-                ele =>
-                    var idx = 0
-                    println(idx)
-                    var group = ele +  ":" + value(idx) + ";"
-                    allStr = allStr + group
-                    idx = idx + 1
-            }).mkString(",")*/
-            /*item.foldLeft("")
-            { (ele, idx) =>
-                var group = ele + ":" + value(idx.toInt) +";"
-                allStr = allStr + group
-            }*/
-
-            //allStr = "{" + allStr + "}"
+            }.mkString("{", ",", "}")
         }
-
     }
 
 }

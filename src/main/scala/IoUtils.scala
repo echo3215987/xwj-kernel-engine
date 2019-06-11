@@ -11,10 +11,8 @@ import org.apache.hadoop.fs.{FSDataInputStream, FSDataOutputStream, FileSystem, 
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import java.util
+import org.apache.hadoop.fs.FileUtil
 
-import org.apache.commons.compress.archivers.tar.{TarArchiveEntry, TarArchiveInputStream}
-import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream
-import org.apache.commons.compress.compressors.xz.XZCompressorInputStream
 
 import scala.io.Source
 
@@ -23,50 +21,42 @@ object IoUtils {
     val TAIJIBASE_MAPPING = configLoader.getString("taiji_base", "code").split(",")
 
     def flatMinioFiles(spark: SparkSession, flag:String, srcPathStr: String, fileLimits: Integer): Path = {
-        var count = 0;
+        var count = 0
 
         val fileSystem = FileSystem.get(URI.create(srcPathStr), spark.sparkContext.hadoopConfiguration)
 
         val srcPath = new Path(srcPathStr)
         val destPath = new Path(new Path(srcPath.getParent, s"${srcPath.getName}_TMP"), flag)
-        //        val zeroPath = new Path(new Path(srcPath.getParent, s"${srcPath.getName}_TMP_ZERO"), flag)
 
         if(!fileSystem.exists(destPath)){
             fileSystem.mkdirs(destPath)
         }
 
-        //        if(!fileSystem.exists(zeroPath)){
-        //            fileSystem.mkdirs(zeroPath)
-        //        }
-        try {
+        //try {
             val wipPathFiles = fileSystem.listFiles(srcPath, true)
             while (count < fileLimits && wipPathFiles.hasNext()) {
                 val file = wipPathFiles.next()
 
                 val filename = file.getPath.getName
                 val tmpFilePath = new Path(destPath, filename)
-                //            val tmpZeroFilePath = new Path(zeroPath, filename)
+
 
                 if (file.getLen > 0) {
-                    println(s"[MOVE] ${file.getPath} -> ${tmpFilePath.toString} : ${file.getLen}")
-                    fileSystem.rename(file.getPath, tmpFilePath)
+                  FileUtil.copy(fileSystem, file.getPath, fileSystem, tmpFilePath, false, true, spark.sparkContext.hadoopConfiguration)
+//                    println(s"[MOVE] ${file.getPath} -> ${tmpFilePath.toString} : ${file.getLen}")
+//                    fileSystem.rename(file.getPath, tmpFilePath)
 
                     count = count + 1
                     Thread.sleep(2000)
 
-                    //            } else {
-                    //                println(s"[Delete] ${file.getPath}: ${file.getLen}")
-                    //                fileSystem.deleteOnExit(file.getPath)
-                    //            }
                 }
             }
-        } catch {
+        /*} catch {
             case ex: FileNotFoundException => {
                 //                ex.printStackTrace()
                 println("===> FileNotFoundException !!!")
             }
-        }
-//        println("destPath: " + destPath)
+        }*/
         return destPath
     }
 
@@ -189,12 +179,14 @@ object IoUtils {
                 partition.foreach { r =>
                     count += 1
 
-                    val values = r.mkString("'", "','", "'").replaceAll("'null'", "null")
-                        .replaceAll("'WrappedArray\\(", "ARRAY[")
-                        .replaceAll("\\)'", "]")
-
+                    val values = r.mkString("'", "','", "'")
+                      .replaceAll("'null'", "null")
+                      .replaceAll("\"null\"", "null")
+                      .replaceAll("'ARRAY\\[", "ARRAY[")
+                      .replaceAll("\\]'", "]")
+println(values)
                     sql = sql + "(" + values + ") ,"
-    println(sql)
+
                     if(sql.length >= batchLength || count == batchSize){
                         runCount = runCount + 1
 

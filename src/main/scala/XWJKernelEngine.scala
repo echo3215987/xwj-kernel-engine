@@ -26,6 +26,7 @@ import java.io.File
 
 import com.mysql.cj.x.protobuf.MysqlxDatatypes.Scalar
 import org.apache.avro.generic.GenericData
+import org.apache.hadoop.fs.Path
 
 import scala.collection.mutable._
 
@@ -129,7 +130,7 @@ object XWJKernelEngine{
 
         //s3a://" + bucket + "/
         val testDetailPath = configLoader.getString(logPathSection, "test_detail_path")
-println(testDetailPath)
+
         val testDetailFileLmits = configLoader.getString(logPathSection, "test_detail_file_limits").toInt
 
         //"sn,build_name,build_description,unit_number,station_id,test_status,test_starttime,test_endtime,list_of_failure,list_of_failure_detail,test_phase,machine_id,factory_code,floor,line_id,test_item,test_value,test_unit,test_lower,test_upper,create_time,update_time,station_name,start_date,product,test_version"
@@ -137,100 +138,73 @@ println(testDetailPath)
         val testDetailColumns = configLoader.getString("log_prop", "test_detail_col")
 
         val dataSeperator = configLoader.getString("log_prop", "log_seperator")
+
         ///////////
         //載入資料//
         ///////////
 
-        try {
-            /*val testDetailDestPath = IoUtils.flatMinioFiles(spark,
+        //try {
+            val testDetailDestPath = IoUtils.flatMinioFiles(spark,
                 flag,
                 testDetailPath,
                 testDetailFileLmits)
 
-            var testDetailSourceDf = IoUtils.getDfFromPath(spark, testDetailDestPath.toString, testDetailColumns, dataSeperator)*/
-            val testDetailDestPath = testDetailPath
             var testDetailSourceDf = IoUtils.getDfFromPath(spark, testDetailDestPath.toString, testDetailColumns, dataSeperator)
 
 
-            //for test
-            testDetailSourceDf.select("sn").show(false)
-            testDetailSourceDf.select("build_name").show(false)
-            testDetailSourceDf.select("build_description").show(false)
-            testDetailSourceDf.select("unit_number").show(false)
-            testDetailSourceDf.select("station_id").show(false)
-            testDetailSourceDf.select("test_status").show(false)
-            testDetailSourceDf.select("test_starttime").show(false)
-            testDetailSourceDf.select("test_endtime").show(false)
-            testDetailSourceDf.select("list_of_failure").show(false)
-            testDetailSourceDf.select("list_of_failure_detail").show(false)
-            testDetailSourceDf.select("test_phase").show(false)
-            testDetailSourceDf.select("machine_id").show(false)
-            testDetailSourceDf.select("factory_code").show(false)
-            testDetailSourceDf.select("floor").show(false)
-            testDetailSourceDf.select("line_id").show(false)
-
-            testDetailSourceDf.select("create_time").show(false)
-            testDetailSourceDf.select("update_time").show(false)
-            testDetailSourceDf.select("station_name").show(false)
-            testDetailSourceDf.select("start_date").show(false)
-            testDetailSourceDf.select("product").show(false)
-            testDetailSourceDf.select("test_version").show(false)
-
-
-/*
             //val testDetailSourceDfCnt = testDetailSourceDf.count()
 
             testDetailSourceDf = testDetailSourceDf.distinct()
-              //.withColumn("product", regexp_replace($"product", "\t", " ")
-              .withColumn("test_starttime",
-                unix_timestamp(trim($"test_starttime"),
-                    configLoader.getString("log_prop", "test_detail_dt_fmt")).cast(TimestampType))
-              .withColumn("test_endtime",
-                  unix_timestamp(trim($"test_endtime"),
-                      configLoader.getString("log_prop", "test_detail_dt_fmt")).cast(TimestampType))
-              .withColumn("create_time",
-                  unix_timestamp(trim($"create_time"),
-                      configLoader.getString("log_prop", "test_detail_dt_fmt")).cast(TimestampType))
-              .withColumn("start_date",
-                  unix_timestamp(trim($"start_date"),
-                      configLoader.getString("log_prop", "test_detail_dt_fmt")).cast(TimestampType))
-              .withColumn("test_item", split(regexp_replace(trim($"test_item"), "\004", "\004"), "\001"))
-
-              //.withColumn("test_value", parseArrayToJSON(split(trim($"test_value"), "\001")))
-              //.withColumn("test_upper", to_json(split(trim($"test_upper"), "\001")))
-              //.withColumn("test_lower", to_json(split(trim($"test_lower"), "\001")))
-              //.withColumn("test_unit", to_json(split(trim($"test_unit"), "\001")))
-              .withColumn("test_value", lit("’\"name\": \"Paint house\", \"tags\": [\"Improvements\", \"Office\"], \"finished\": true}’"))
-            .withColumn("test_upper", lit("’{\"name\": \"Paint house\", \"tags\": [\"Improvements\", \"Office\"], \"finished\": true}’"))
-            .withColumn("test_lower",lit("’{\"name\": \"Paint house\", \"tags\": [\"Improvements\", \"Office\"], \"finished\": true}’"))
-            .withColumn("test_unit", lit("\"name\": \"Paint house\", \"tags\": [\"Improvements\", \"Office\"], \"finished\": true}’"))
-
-            //df.withColumn("MapVal", map(lit(0), col("Val")))
-
-              .persist(StorageLevel.MEMORY_AND_DISK_SER_2)
+                //.withColumn("product", regexp_replace($"product", "\t", " ")
+                .withColumn("test_starttime",
+                    unix_timestamp(trim($"test_starttime"),
+                        configLoader.getString("log_prop", "test_detail_dt_fmt")).cast(TimestampType))
+                .withColumn("test_endtime",
+                    unix_timestamp(trim($"test_endtime"),
+                        configLoader.getString("log_prop", "test_detail_dt_fmt")).cast(TimestampType))
+                .withColumn("create_time",
+                    unix_timestamp(trim($"create_time"),
+                        configLoader.getString("log_prop", "test_detail_dt_fmt")).cast(TimestampType))
+                .withColumn("start_date",
+                    unix_timestamp(trim($"start_date"),
+                        configLoader.getString("log_prop", "test_detail_dt_fmt")).cast(TimestampType))
+                .withColumn("update_time",
+                    unix_timestamp(trim($"update_time"),
+                        configLoader.getString("log_prop", "test_detail_dt_fmt")).cast(TimestampType))
+                .withColumn("test_item", parseArrayToString(split(trim($"test_item"), "\001")))
+                .withColumn("test_item", concat(lit("ARRAY["), $"test_item", lit("]")))
+                .withColumn("test_value", parseStringToJSONString(split(trim($"test_value"), "\001")))
+                .withColumn("test_upper", parseStringToJSONString(split(trim($"test_upper"), "\001")))
+                .withColumn("test_lower", parseStringToJSONString(split(trim($"test_lower"), "\001")))
+                .withColumn("test_unit", parseStringToJSONString(split(trim($"test_unit"), "\001")))
+                .persist(StorageLevel.MEMORY_AND_DISK_SER_2)
 
             val testDetailSourceDfDistCnt = testDetailSourceDf.count()
 
+            testDetailSourceDf.select("test_item").show(false)
+            testDetailSourceDf.printSchema()
+
             //TODO: summary file
             //Summary.setMasterFilesNameList(IoUtils.getFilesNameList(spark, testDetailDestPath))
-            testDetailSourceDf.select("test_value").show(false)
-            testDetailSourceDf.printSchema()
+            //                  testDetailSourceDf.select("test_upper").show(false)
+            //                  testDetailSourceDf.select("test_lower").show(false)
+            //                  testDetailSourceDf.select("test_unit").show(false)
+            //            testDetailSourceDf.printSchema()
+
             //將資料儲存進Cockroachdb
             println("saveToCockroachdb --> testDetailSourceDf")
-           IoUtils.saveToCockroachdb(testDetailSourceDf,
-                configLoader.getString("log_prop", "test_detail_table"),
-                numExecutors)
-*/
+            IoUtils.saveToCockroachdb(testDetailSourceDf,
+              configLoader.getString("log_prop", "test_detail_table"),
+              numExecutors)
 
 
 
-
-        } catch {
-            case ex: FileNotFoundException => {
-                // ex.printStackTrace()
-                println("===> FileNotFoundException !!!")
-            }
-        }
+            /*} catch {
+                case ex: FileNotFoundException => {
+                    // ex.printStackTrace()
+                    println("===> FileNotFoundException !!!")
+                }
+            }*/
     }
 
 }
