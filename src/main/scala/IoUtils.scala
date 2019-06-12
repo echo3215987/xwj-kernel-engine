@@ -184,7 +184,7 @@ object IoUtils {
                       .replaceAll("\"null\"", "null")
                       .replaceAll("'ARRAY\\[", "ARRAY[")
                       .replaceAll("\\]'", "]")
-println(values)
+
                     sql = sql + "(" + values + ") ,"
 
                     if(sql.length >= batchLength || count == batchSize){
