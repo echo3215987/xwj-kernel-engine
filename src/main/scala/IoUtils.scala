@@ -73,8 +73,11 @@ object IoUtils {
           .map(_.split(dataSeperator, schema.fields.length).map(field => {
               if(field.isEmpty)
                   ""
+              else if(field.contains("\003"))//控制字元不濾掉空白
+                  field
               else
                   field.trim
+
           }))
           .map(p => Row(p: _*))
 

@@ -153,7 +153,7 @@ object XWJKernelEngine {
 
 
       //val testDetailSourceDfCnt = testDetailSourceDf.count()
-
+      //testDetailSourceDf.select("test_item", "test_value", "test_upper").show(false)
       var testDetailTempDf = testDetailSourceDf.distinct()
         .withColumn("test_starttime",
           unix_timestamp(trim($"test_starttime"),
@@ -185,7 +185,7 @@ object XWJKernelEngine {
         .withColumn("list_of_failure_detail", regexp_replace($"list_of_failure_detail", "\001", "^A"))
         .persist(StorageLevel.MEMORY_AND_DISK_SER_2)
 
-
+      testDetailTempDf.select("test_item", "test_value", "test_upper").show(false)
       val testDetailSourceDfDistCnt = testDetailSourceDf.count()
 
 
@@ -205,53 +205,74 @@ object XWJKernelEngine {
         .withColumn("test_unit", parseStringToJSONString($"test_unit"))
 
       //將資料儲存進Cockroachdb
-      println("saveToCockroachdb --> testDetailSourceDf")
-      IoUtils.saveToCockroachdb(testDetailCockroachDf,
+      println("saveToCockroachdb --> testDetailCockroachDf")
+      /*IoUtils.saveToCockroachdb(testDetailCockroachDf,
         configLoader.getString("log_prop", "test_detail_table"),
         numExecutors)
+*/
 
+      //insert product station to mysql
+      //將測項上下界撈出來之後, 根據測試版號與時間選最新
 
-      //insert product station
-      //testDetailSourceDf.select("product","station_name").withColumn("flag", lit("1"))
-
-
-      testDetailSourceDf.printSchema()
-      //insert mysql
-      testDetailSourceDf.select("product", "station_name", "station_id", "test_item",
+      testDetailTempDf.select("product", "station_name", "test_item", //"station_id",
         "test_upper", "test_lower", "test_unit", "test_version", "test_starttime")
-      testDetailSourceDf.select("product", "station_name", "station_id", "test_version", "test_starttime")
-        .orderBy($"test_starttime").show(false)
+
+      testDetailTempDf = testDetailTempDf
+        .withColumn("temp", arrays_zip($"test_item", $"test_upper", $"test_lower", $"test_unit"))
+        .withColumn("temp", explode($"temp"))//station_id
+        .selectExpr("product", "station_name", "temp.test_item as test_item", "temp.test_upper as test_upper",
+        "temp.test_lower as test_lower", "temp.test_unit as test_unit", "test_version", "test_starttime")
+        //控制字元需要轉換嗎(mysql)
+        .withColumn("test_upper", split(split(col("test_upper"), "\004").getItem(1), "\003").getItem(1))
+        .withColumn("test_lower", split(split(col("test_lower"), "\004").getItem(1), "\003").getItem(1))
+        .withColumn("test_unit", split(split(col("test_unit"), "\004").getItem(1), "\003").getItem(1))
+
+      val productList = testDetailTempDf.select("product").dropDuplicates().as(String).collectAsList()
+println(productList)
+      val mariadbUtils = new MariadbUtils()
+      val productItemSpecDf = mariadbUtils
+        .getDfFromMariadb(spark, "product_item_spec")
+        .select("product", "station_name", "test_item", //"station_id",
+          "test_upper", "test_lower", "test_unit", "test_version", "test_starttime")
+        .where(col("product").isin(productList))
 
 
-      /*
-      CREATE TABLE `product_station` (
-        `id` int(11) NOT NULL AUTO_INCREMENT,
-        `product` varchar(50) NOT NULL,
-        `station_name` varchar(50) NOT NULL,
-        `station_name_user` varchar(50) DEFAULT NULL,
-        `flag` varchar(45) DEFAULT NULL,
-        PRIMARY KEY (`product`,`station_name`),
-        UNIQUE KEY `id_UNIQUE` (`id`)
-      ) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4;
-*/
-/*
-      CREATE TABLE `product_item_spec` (
-        `id` int(11) NOT NULL AUTO_INCREMENT,
-        `product` varchar(50) NOT NULL,
-        `station_name` varchar(50) NOT NULL,
-        `station_id` varchar(50) DEFAULT NULL,
-        `test_item` varchar(100) NOT NULL,
-        `test_upper` varchar(100) DEFAULT NULL,
-        `test_lower` varchar(100) DEFAULT NULL,
-        `test_unit` varchar(100) DEFAULT NULL,
-        `test_version` varchar(100) NOT NULL,
-        `test_time` timestamp NOT NULL,
-        PRIMARY KEY (`product`,`test_version`,`test_time`,`station_name`,`test_item`),
-        UNIQUE KEY `id_UNIQUE` (`id`),
-        KEY `product1` (`product`,`station_name`,`test_item`)
-      ) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4;
-*/
+      productItemSpecDf.show(false)
 
+      val wSpec = Window.partitionBy(col("product"), col("station_name"),
+        col("test_item"))
+        .orderBy(desc("test_version"), desc("test_starttime"))
+
+      testDetailTempDf = testDetailTempDf.withColumn("rank",
+        rank().over(wSpec))
+        .where($"rank".equalTo(1)).drop("rank")
+      testDetailTempDf.show(false)
+//      val updateList = List("test_upper", "test_lower", "test_unit").map(name=> testDetailTempDf.columns.indexOf(name))
+//
+//
+//
+//      //將資料儲存進Mariadb
+//      println("saveToMariadb --> testDetailTempDf")
+//
+//      mariadbUtils.saveToMariadb(
+//        testDetailTempDf,
+//        "product_item_spec",
+//        //updateList,
+//        numExecutors
+//      )
+
+
+      /*testDetailSourceDf.select("product", "station_name")
+          .withColumn("flag", lit(1)),
+        "product_station",
+        numExecutors*/
+      //testDetailTempDf.show(false)
+      //testDetailTempDf.printSchema()
+
+//      testDetailSourceDf.select("product", "station_name", "station_id", "test_version", "test_starttime")
+//        .orderBy($"test_starttime").show(false)
+
+      //testDetailSourceDf.select("product","station_name").withColumn("flag", lit("1"))
     } catch {
       case ex: FileNotFoundException => {
         // ex.printStackTrace()
