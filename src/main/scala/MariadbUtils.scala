@@ -115,7 +115,7 @@ class MariadbUtils {
                     val values = r.mkString("'", "','", "'").replaceAll("'null'", "null")
 
                     sql = sql + "(" + values + ") ,"
-
+println(sql)
                     if(count == batchSize){
 //                        println("寫入Mariadb筆數 : " + count)
 //                        println("sql : " + sql.substring(0, sql.length - 1))

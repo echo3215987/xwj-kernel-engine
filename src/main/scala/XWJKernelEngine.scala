@@ -230,7 +230,7 @@ println(productList)
         .where(col("product").isin(productList:_*))
 
 
-      productItemSpecDf.select("test_starttime").dropDuplicates().show(false)
+      productItemSpecDf.select("test_starttime").show(false)
 
       testDetailTempDf = productItemSpecDf.union(testDetailTempDf)
 

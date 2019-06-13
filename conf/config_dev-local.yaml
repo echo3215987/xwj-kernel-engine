@@ -2,7 +2,8 @@ spark:
     job_name: "dev-local-xwj-KernelEngine"
     master: "local"
     conf: "spark.driver.memory=2g;
-           spark.executor.memory=2g"
+           spark.executor.memory=2g;
+           spark.sql.session.timeZone='CST'"
 
 minio:
     endpoint:   "http://10.57.232.167:31359"
