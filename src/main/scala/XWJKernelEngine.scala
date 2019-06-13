@@ -227,14 +227,15 @@ object XWJKernelEngine {
         .withColumn("test_lower", split(split(col("test_lower"), "\004").getItem(1), "\003").getItem(1))
         .withColumn("test_unit", split(split(col("test_unit"), "\004").getItem(1), "\003").getItem(1))
 
-      val productList = testDetailTempDf.select("product").dropDuplicates().as(String).collectAsList()
+      val productList = testDetailTempDf.select("product").dropDuplicates().as(Encoders.STRING).collect()
 println(productList)
+
       val mariadbUtils = new MariadbUtils()
       val productItemSpecDf = mariadbUtils
         .getDfFromMariadb(spark, "product_item_spec")
         .select("product", "station_name", "test_item", //"station_id",
           "test_upper", "test_lower", "test_unit", "test_version", "test_starttime")
-        .where(col("product").isin(productList))
+        .where(col("product").isin(productList:_*))
 
 
       productItemSpecDf.show(false)
