@@ -19,16 +19,6 @@ import org.apache.log4j.Logger
 import org.apache.log4j.Level
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.storage.StorageLevel
-import java.nio.file.{Files, Paths}
-
-import org.apache.commons.io.FileUtils
-import java.io.File
-
-import com.mysql.cj.x.protobuf.MysqlxDatatypes.Scalar
-import org.apache.avro.generic.GenericData
-import org.apache.hadoop.fs.Path
-
-import scala.collection.mutable._
 
 
 object XWJKernelEngine {
@@ -227,52 +217,64 @@ object XWJKernelEngine {
         .withColumn("test_lower", split(split(col("test_lower"), "\004").getItem(1), "\003").getItem(1))
         .withColumn("test_unit", split(split(col("test_unit"), "\004").getItem(1), "\003").getItem(1))
 
-      val productList = testDetailTempDf.select("product").dropDuplicates().as(String).collectAsList()
+      val productList = testDetailTempDf.select("product").dropDuplicates().as(Encoders.STRING).collect()
 println(productList)
+
+
+
       val mariadbUtils = new MariadbUtils()
       val productItemSpecDf = mariadbUtils
         .getDfFromMariadb(spark, "product_item_spec")
         .select("product", "station_name", "test_item", //"station_id",
           "test_upper", "test_lower", "test_unit", "test_version", "test_starttime")
-        .where(col("product").isin(productList))
+        .where(col("product").isin(productList:_*))
 
 
       productItemSpecDf.show(false)
+
+      testDetailTempDf = productItemSpecDf.union(testDetailTempDf)
 
       val wSpec = Window.partitionBy(col("product"), col("station_name"),
         col("test_item"))
         .orderBy(desc("test_version"), desc("test_starttime"))
 
-      testDetailTempDf = testDetailTempDf.withColumn("rank",
-        rank().over(wSpec))
+      testDetailTempDf = testDetailTempDf
+        .withColumn("rank", rank().over(wSpec))
         .where($"rank".equalTo(1)).drop("rank")
       testDetailTempDf.show(false)
-//      val updateList = List("test_upper", "test_lower", "test_unit").map(name=> testDetailTempDf.columns.indexOf(name))
-//
-//
-//
-//      //將資料儲存進Mariadb
-//      println("saveToMariadb --> testDetailTempDf")
-//
-//      mariadbUtils.saveToMariadb(
-//        testDetailTempDf,
-//        "product_item_spec",
-//        //updateList,
-//        numExecutors
-//      )
+      //val updateList = List("test_upper", "test_lower", "test_unit").map(name=> testDetailTempDf.columns.indexOf(name))
 
+      //將資料儲存進Mariadb
+      println("saveToMariadb --> testDetailTempDf")
 
-      /*testDetailSourceDf.select("product", "station_name")
-          .withColumn("flag", lit(1)),
+      mariadbUtils.saveToMariadb(
+        testDetailTempDf,
+        "product_item_spec",
+        //updateList,
+        numExecutors
+      )
+
+      //insert product station
+      var productStationDf = mariadbUtils
+        .getDfFromMariadb(spark, "product_station")
+        .select("product", "station_name", "flag", "station_name_user")
+        .where(col("product").isin(productList:_*))
+
+      productStationDf = productStationDf.union(
+          testDetailSourceDf.select("product", "station_name")
+          .dropDuplicates()
+          .withColumn("flag", lit(1))
+          .withColumn("station_name_user", lit(null)))
+      productStationDf = productStationDf.dropDuplicates("product", "station_name")
+
+      println("saveToMariadb --> productStationDf")
+
+      mariadbUtils.saveToMariadb(
+        productStationDf,
         "product_station",
-        numExecutors*/
-      //testDetailTempDf.show(false)
-      //testDetailTempDf.printSchema()
+        numExecutors
+      )
 
-//      testDetailSourceDf.select("product", "station_name", "station_id", "test_version", "test_starttime")
-//        .orderBy($"test_starttime").show(false)
-
-      //testDetailSourceDf.select("product","station_name").withColumn("flag", lit("1"))
     } catch {
       case ex: FileNotFoundException => {
         // ex.printStackTrace()
