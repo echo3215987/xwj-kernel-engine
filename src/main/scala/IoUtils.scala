@@ -17,8 +17,6 @@ import org.apache.hadoop.fs.FileUtil
 import scala.io.Source
 
 object IoUtils {
-    val BUFFERSIZE = 4096
-    val TAIJIBASE_MAPPING = configLoader.getString("taiji_base", "code").split(",")
 
     def flatMinioFiles(spark: SparkSession, flag:String, srcPathStr: String, fileLimits: Integer): Path = {
         var count = 0
