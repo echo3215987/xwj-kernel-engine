@@ -220,8 +220,8 @@ object XWJKernelEngine {
       val productList = testDetailTempDf.select("product").dropDuplicates().as(Encoders.STRING).collect()
 println(productList)
 
-
-
+      testDetailTempDf.select("test_starttime").dropDuplicates().show(50, false)
+//2019-05-19 01:54:50
       val mariadbUtils = new MariadbUtils()
       val productItemSpecDf = mariadbUtils
         .getDfFromMariadb(spark, "product_item_spec")
@@ -230,7 +230,7 @@ println(productList)
         .where(col("product").isin(productList:_*))
 
 
-      productItemSpecDf.show(false)
+      productItemSpecDf.select("test_starttime").dropDuplicates().show(false)
 
       testDetailTempDf = productItemSpecDf.union(testDetailTempDf)
 
