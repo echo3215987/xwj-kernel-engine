@@ -37,6 +37,9 @@ object Test{
 
         spark.sparkContext.setLogLevel("ERROR")
         import spark.implicits._
+
+
+
 /*
         var test = Vector("SpecRedNomCh123_Bits8.1=1", "SpecMaxChipTolFromNom_Bits8=2", "SpecMaxChipTolFromNom_Bits7=3")
 
@@ -72,9 +75,12 @@ object Test{
         //try {
         val testDetailColumns = configLoader.getString("log_prop", "test_detail_col")
         val dataSeperator = configLoader.getString("log_prop", "log_seperator")
-
-        val testDetailDestPath = "C:\\Users\\pj17_\\Desktop\\part-00000-884c2f76-b731-4f9c-9ba5-c35e3c1558c3-c000.txt"
-        val testDetailSourceDf = IoUtils.getDfFromPath(spark, testDetailDestPath.toString, testDetailColumns, dataSeperator)
+        //val testDetailDestPath = "C:\\Users\\foxconn\\Desktop\\RCA\\ask\\.txt\\part-00000-884c2f76-b731-4f9c-9ba5-c35e3c1558c3-c000.txt"
+        //val testDetailDestPath = "C:\\Users\\pj17_\\Desktop\\part-00000-884c2f76-b731-4f9c-9ba5-c35e3c1558c3-c000.txt"
+        val testDetailDestPath = "C:\\Users\\foxconn\\Desktop\\test.csv"
+        var df = spark.read.option("header", "true").csv(testDetailDestPath)//.show(false)
+        df.select("AE-39@Special Build Description", "AE-39@Unit Number", "AE-39@Station ID", "AE-39@TestResult")
+        /*val testDetailSourceDf = IoUtils.getDfFromPath(spark, testDetailDestPath.toString, testDetailColumns, dataSeperator)
 
 
             var testDetailTempDf = testDetailSourceDf.distinct()
@@ -156,7 +162,7 @@ object Test{
         val df = Seq(
             (1, "TaiJi Base"),
             (2, "Second Value"),
-            (3, "TaiJi Base"),
+            (3, "TaiJi Base")
         ).toDF("int_column", "product")
 
         df.where(col("product").isin(productList:_*)).show(false)
@@ -193,7 +199,7 @@ object Test{
             //        numExecutors
             //      )
 
-
+*/
             /*testDetailSourceDf.select("product", "station_name")
                 .withColumn("flag", lit(1)),
               "product_station",
