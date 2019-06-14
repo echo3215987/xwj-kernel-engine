@@ -31,7 +31,7 @@ object XWJKernelEngine {
     val limit = 1
     var count = 0
 
-    println("xyj-kernel-engine-v1:")
+    println("xyj-bigtable-v1:")
 
     while (count < limit) {
       println(s"count: $count")
