@@ -6,6 +6,7 @@ import java.util.Locale
 import com.foxconn.iisd.bd.rca.XWJKernelEngine.configLoader
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types.TimestampType
 
 import scala.collection.mutable.Seq
 
@@ -18,6 +19,7 @@ object SparkUDF{
         s: String =>
             configLoader.getString("test_floor_line", "code_"+s)
     }
+
     //parse array to string
     def parseArrayToString = udf {
         itemValue: Seq[String] => {

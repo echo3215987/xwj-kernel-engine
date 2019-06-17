@@ -11,10 +11,12 @@ import com.foxconn.iisd.bd.rca.utils.IoUtils
 import com.foxconn.iisd.bd.rca.utils.Summary
 import com.foxconn.iisd.bd.rca.utils.db._
 import com.foxconn.iisd.bd.rca.SparkUDF._
+import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions.{regexp_replace, _}
 import org.apache.spark.sql.types.{StructField, _}
 import org.apache.spark.sql.Encoders
+import org.apache.spark.sql.Column
 import org.apache.log4j.Logger
 import org.apache.log4j.Level
 import org.apache.spark.sql.SparkSession
@@ -26,14 +28,14 @@ import scala.collection.mutable.Seq
 object XWJKernelEngine {
 
   var configLoader = new ConfigLoader()
-  val datetimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.US)
+  val datetimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.TAIWAN)
 
   def main(args: Array[String]): Unit = {
 
     val limit = 1
     var count = 0
 
-    println("xyj-bigtable-v1:")
+    println("xwj-bigtable-v1:")
 
     while (count < limit) {
       println(s"count: $count")
@@ -61,11 +63,12 @@ object XWJKernelEngine {
 
     var date: java.util.Date = new java.util.Date()
     val flag = date.getTime().toString
-    /*val jobStartTime: String = new SimpleDateFormat(
+
+    val jobStartTime: String = new SimpleDateFormat(
         configLoader.getString("summary_log_path","job_fmt")).format(date.getTime())
     println("job start time : " + jobStartTime)
-    Summary.setJobStartTime(jobStartTime)
-*/
+//    Summary.setJobStartTime(jobStartTime)
+
     println(s"flag: $flag" + ": xwj")
 
     Logger.getLogger("org").setLevel(Level.OFF)
@@ -136,6 +139,9 @@ object XWJKernelEngine {
     ///////////
 
     try {
+
+      //(1)測試結果表
+
       val testDetailDestPath = IoUtils.flatMinioFiles(spark,
         flag,
         testDetailPath,
@@ -162,10 +168,14 @@ object XWJKernelEngine {
         .withColumn("list_of_failure_detail", regexp_replace($"list_of_failure_detail", "\001", "^A"))
         .persist(StorageLevel.MEMORY_AND_DISK_SER_2)
 
-      testDetailTempDf.select("test_item", "test_value", "test_upper").show(false)
+      //testDetailTempDf.select("test_item", "test_value", "test_upper").show(false)
       val testDetailSourceDfDistCnt = testDetailSourceDf.count()
 
+      def  testDetailDateStringToTimestamp (colName:String, configkey: String, configValue: String): Column  = {
+        unix_timestamp(trim(col(colName)),
+          configLoader.getString(configkey, configValue)).cast(TimestampType)
 
+      }
 
       //TODO: summary file
 //      Summary.setMasterFilesNameList(IoUtils.getFilesNameList(spark, testDetailDestPath))
@@ -174,34 +184,48 @@ object XWJKernelEngine {
 //                        testDetailSourceDf.select("test_unit").show(false)
 //                  testDetailSourceDf.printSchema()
       val testDetailCockroachDf = testDetailTempDf
-        .withColumn("test_starttime",
-          unix_timestamp(trim($"test_starttime"),
-            configLoader.getString("log_prop", "test_detail_dt_fmt")).cast(TimestampType))
-        .withColumn("test_endtime",
-          unix_timestamp(trim($"test_endtime"),
-            configLoader.getString("log_prop", "test_detail_dt_fmt")).cast(TimestampType))
-        .withColumn("create_time",
-          unix_timestamp(trim($"create_time"),
-            configLoader.getString("log_prop", "test_detail_dt_fmt")).cast(TimestampType))
-        .withColumn("start_date",
-          unix_timestamp(trim($"start_date"),
-            configLoader.getString("log_prop", "test_detail_dt_fmt")).cast(TimestampType))
-        .withColumn("update_time",
-          unix_timestamp(trim($"update_time"),
-            configLoader.getString("log_prop", "test_detail_dt_fmt")).cast(TimestampType))
+          .withColumn("test_starttime",
+            testDetailDateStringToTimestamp("test_starttime", "log_prop", "test_detail_dt_fmt"))
+          .withColumn("test_endtime",
+            testDetailDateStringToTimestamp("test_endtime", "log_prop", "test_detail_dt_fmt"))
+          .withColumn("create_time",
+            testDetailDateStringToTimestamp("create_time", "log_prop", "test_detail_dt_fmt"))
+          .withColumn("start_date",
+            testDetailDateStringToTimestamp("start_date", "log_prop", "test_detail_dt_fmt"))
+          .withColumn("update_time",
+            testDetailDateStringToTimestamp("update_time", "log_prop", "test_detail_dt_fmt"))
+
+//        .withColumn("test_starttime",
+//          unix_timestamp(trim($"test_starttime"),
+//            configLoader.getString("log_prop", "test_detail_dt_fmt")).cast(TimestampType))
+//        .withColumn("test_endtime",
+//          unix_timestamp(trim($"test_endtime"),
+//            configLoader.getString("log_prop", "test_detail_dt_fmt")).cast(TimestampType))
+//        .withColumn("create_time",
+//          unix_timestamp(trim($"create_time"),
+//            configLoader.getString("log_prop", "test_detail_dt_fmt")).cast(TimestampType))
+//        .withColumn("start_date",
+//          unix_timestamp(trim($"start_date"),
+//            configLoader.getString("log_prop", "test_detail_dt_fmt")).cast(TimestampType))
+//        .withColumn("update_time",
+//          unix_timestamp(trim($"update_time"),
+//            configLoader.getString("log_prop", "test_detail_dt_fmt")).cast(TimestampType))
         .withColumn("test_item", parseArrayToString($"test_item"))
         .withColumn("test_item", concat(lit("ARRAY["), $"test_item", lit("]")))
         .withColumn("test_value", parseStringToJSONString($"test_value"))
         .withColumn("test_upper", parseStringToJSONString($"test_upper"))
         .withColumn("test_lower", parseStringToJSONString($"test_lower"))
         .withColumn("test_unit", parseStringToJSONString($"test_unit"))
+        //存入upsert time
+        .withColumn("upsert_time", lit(jobStartTime).cast(TimestampType))
 
+      //testDetailCockroachDf.select("upsert_time").show(false)
       //將資料儲存進Cockroachdb
       println("saveToCockroachdb --> testDetailCockroachDf")
-      /*IoUtils.saveToCockroachdb(testDetailCockroachDf,
+      IoUtils.saveToCockroachdb(testDetailCockroachDf,
         configLoader.getString("log_prop", "test_detail_table"),
         numExecutors)
-*/
+
 
       //insert product station to mysql
       //將測項上下界撈出來之後, 根據測試版號與時間選最新
@@ -247,11 +271,11 @@ object XWJKernelEngine {
       //將資料儲存進Mariadb
       println("saveToMariadb --> testDetailTempDf")
 
-      mariadbUtils.saveToMariadb(
-        testDetailTempDf,
-        "product_item_spec",
-        numExecutors
-      )
+//      mariadbUtils.saveToMariadb(
+//        testDetailTempDf,
+//        "product_item_spec",
+//        numExecutors
+//      )
 
       //insert product station
       var productStationDf = mariadbUtils
@@ -268,11 +292,22 @@ object XWJKernelEngine {
 
       println("saveToMariadb --> productStationDf")
 
-      mariadbUtils.saveToMariadb(
-        productStationDf,
-        "product_station",
-        numExecutors
-      )
+//      mariadbUtils.saveToMariadb(
+//        productStationDf,
+//        "product_station",
+//        numExecutors
+//      )
+
+
+      //(2)工單
+//      val testDetailDestPath = IoUtils.flatMinioFiles(spark,
+//        flag,
+//        testDetailPath,
+//        testDetailFileLmits)
+//
+//      val testDetailSourceDf = IoUtils.getDfFromPath(spark, testDetailDestPath.toString, testDetailColumns, dataSeperator)
+
+
 
     } catch {
       case ex: FileNotFoundException => {
