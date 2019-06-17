@@ -1,21 +1,19 @@
+package com.foxconn.iisd.bd.rca
+
 import java.io.FileNotFoundException
 import java.text.SimpleDateFormat
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-import com.foxconn.iisd.bd.config.ConfigLoader
-import com.foxconn.iisd.bd.rca.utils.{IoUtils, Summary}
-import com.foxconn.iisd.bd.rca.utils.db._
-import com.foxconn.iisd.bd.rca.Analyzer
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types._
+import org.apache.spark.sql.types.{IntegerType, StringType, TimestampType}
 import org.apache.spark.storage.StorageLevel
 
-import scala.collection.mutable._
+import scala.collection.mutable.{Map, Seq}
 
 object KernelEngineBackup{
 

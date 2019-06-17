@@ -1,4 +1,4 @@
-name := "XWJ_kernel_engine"
+name := "xwj_kernel_engine"
 
 version := "0.1"
 

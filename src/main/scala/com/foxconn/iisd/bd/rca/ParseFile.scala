@@ -1,26 +1,10 @@
-import java.io.FileNotFoundException
-import java.text.SimpleDateFormat
-import java.time.LocalDateTime
+package com.foxconn.iisd.bd.rca
+
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-import com.foxconn.iisd.bd.config.ConfigLoader
-import com.foxconn.iisd.bd.rca.utils.{IoUtils, Summary}
-import com.foxconn.iisd.bd.rca.utils.db._
-import org.apache.log4j.{Level, Logger}
 import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.expressions.Window
-import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types._
-import org.apache.spark.storage.StorageLevel
-
-import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream
-import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
-import org.apache.spark.input.PortableDataStream
-import scala.util.Try
-import java.nio.charset._
-
-import scala.collection.mutable._
+import org.apache.spark.sql.functions.{col, concat, lit, not}
 
 object ParseFile{
 

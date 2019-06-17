@@ -1,26 +1,9 @@
-import java.io.FileNotFoundException
+package com.foxconn.iisd.bd.rca
+
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-import com.foxconn.iisd.bd.config.ConfigLoader
-import com.foxconn.iisd.bd.rca.SparkUDF.{parseArrayToString, parseStringToJSONString}
-import com.foxconn.iisd.bd.rca.XWJKernelEngine.configLoader
-import com.foxconn.iisd.bd.rca.utils.IoUtils
-import com.foxconn.iisd.bd.rca.utils.db.MariadbUtils
-import org.apache.spark.sql.types.TimestampType
-import com.foxconn.iisd.bd.rca.utils.db._
-import com.foxconn.iisd.bd.rca.SparkUDF._
-import org.apache.spark.sql.expressions.Window
-import org.apache.spark.sql.functions.{regexp_replace, _}
-import org.apache.spark.sql.types.{StructField, _}
-import org.apache.spark.sql.Encoders
-import org.apache.log4j.Logger
-import org.apache.log4j.Level
 import org.apache.spark.sql.SparkSession
-import org.apache.spark.storage.StorageLevel
-
-import scala.collection.mutable.Seq
-
 
 object Test{
 
@@ -36,7 +19,6 @@ object Test{
           .getOrCreate()
 
         spark.sparkContext.setLogLevel("ERROR")
-        import spark.implicits._
 
 
 

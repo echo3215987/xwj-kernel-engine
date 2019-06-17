@@ -2,28 +2,16 @@ package com.foxconn.iisd.bd.rca
 
 import java.io.FileNotFoundException
 import java.text.SimpleDateFormat
-import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-import com.foxconn.iisd.bd.config.ConfigLoader
-import com.foxconn.iisd.bd.rca.utils.IoUtils
-import com.foxconn.iisd.bd.rca.utils.Summary
-import com.foxconn.iisd.bd.rca.utils.db._
-import com.foxconn.iisd.bd.rca.SparkUDF._
-import org.apache.hadoop.fs.Path
+import com.foxconn.iisd.bd.rca.SparkUDF.{parseArrayToString, parseStringToJSONString}
+import org.apache.log4j.{Level, Logger}
 import org.apache.spark.sql.expressions.Window
-import org.apache.spark.sql.functions.{regexp_replace, _}
-import org.apache.spark.sql.types.{StructField, _}
-import org.apache.spark.sql.Encoders
-import org.apache.spark.sql.Column
-import org.apache.log4j.Logger
-import org.apache.log4j.Level
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types.TimestampType
+import org.apache.spark.sql.{Column, Encoders, SparkSession}
 import org.apache.spark.storage.StorageLevel
-
-import scala.collection.mutable.Seq
-
 
 object XWJKernelEngine {
 
@@ -220,7 +208,7 @@ object XWJKernelEngine {
         .withColumn("upsert_time", lit(jobStartTime).cast(TimestampType))
 
       //testDetailCockroachDf.select("upsert_time").show(false)
-      //將資料儲存進Cockroachdb
+      //將測試結果表資料儲存進Cockroachdb
       println("saveToCockroachdb --> testDetailCockroachDf")
       IoUtils.saveToCockroachdb(testDetailCockroachDf,
         configLoader.getString("log_prop", "test_detail_table"),
@@ -300,14 +288,26 @@ object XWJKernelEngine {
 
 
       //(2)工單
-//      val testDetailDestPath = IoUtils.flatMinioFiles(spark,
-//        flag,
-//        testDetailPath,
-//        testDetailFileLmits)
-//
-//      val testDetailSourceDf = IoUtils.getDfFromPath(spark, testDetailDestPath.toString, testDetailColumns, dataSeperator)
+      val woPath = configLoader.getString(logPathSection, "wo_path")
 
+      val woFileLmits = configLoader.getString(logPathSection, "wo_file_limits").toInt
 
+      val woColumns = configLoader.getString("log_prop", "wo_col")
+
+      val woDestPath = IoUtils.flatMinioFiles(spark,
+        flag,
+        woPath,
+        woFileLmits)
+
+      var woSourceDf = IoUtils.getDfFromPath(spark, woDestPath.toString, woColumns, dataSeperator)
+      woSourceDf = woSourceDf.drop("releasedate","prodversion","createDate")
+      woSourceDf.show(false)
+
+      //將工單資料儲存進Cockroachdb
+      println("saveToCockroachdb --> woSourceDf")
+      IoUtils.saveToCockroachdb(woSourceDf,
+        configLoader.getString("log_prop", "wo_table"),
+        numExecutors)
 
     } catch {
       case ex: FileNotFoundException => {

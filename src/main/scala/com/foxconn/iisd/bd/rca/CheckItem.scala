@@ -1,9 +1,10 @@
+package com.foxconn.iisd.bd.rca
+
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-import com.foxconn.iisd.bd.config.ConfigLoader
 import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.functions._
+import org.apache.spark.sql.functions.col
 
 object CheckItem{
 
