@@ -102,9 +102,7 @@ object XWJKernelEngine {
       spark.sparkContext.hadoopConfiguration.set("fs.s3a.access.key", accessKey)
       spark.sparkContext.hadoopConfiguration.set("fs.s3a.secret.key", secretKey)
     }
-
     import spark.implicits._
-
     val numExecutors = spark.conf.get("spark.executor.instances", "1").toInt
 
     //val factory = configLoader.getString("general", "factory")
@@ -301,6 +299,7 @@ object XWJKernelEngine {
 
       var woSourceDf = IoUtils.getDfFromPath(spark, woDestPath.toString, woColumns, dataSeperator)
       woSourceDf = woSourceDf.drop("releasedate","prodversion","createDate")
+        .withColumn("upsert_time", lit(jobStartTime).cast(TimestampType))
       woSourceDf.show(false)
 
       //將工單資料儲存進Cockroachdb
