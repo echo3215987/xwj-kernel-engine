@@ -1,7 +1,10 @@
 package com.foxconn.iisd.bd.rca
 
+import java.text.SimpleDateFormat
+
 import com.foxconn.iisd.bd.rca.XWJKernelEngine.configLoader
 import org.apache.spark.sql.functions.udf
+import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
 import scala.collection.mutable.Seq
 
@@ -49,5 +52,43 @@ object SparkUDF{
             }.mkString("{", ",", "}")
         }
     }
+
+    //parse data type
+    def castColumnDataType = udf{
+        (col: String)  => {
+            var datatype = "string"
+            if (col != null) {
+                try {
+                    if (col.indexOf(".") > 0) {
+                        //float
+                        var value = col.toFloat
+                        if (value.isInstanceOf[Float]) {
+                            datatype = "float"
+                        }
+                    } else {
+                        //int
+                        var value = col.toInt
+                        if (value.isInstanceOf[Int]) {
+                            datatype = "int"
+                        }
+                    }
+
+                } catch {
+                    case ex: Exception => {
+                        // ex.printStackTrace()
+                        //println("===> cast data type Exception !!!")
+                    }
+                }
+
+                if(datatype.equals("string")){//timestamp
+                    if(IoUtils.convertToDate(col))
+                        datatype = "timestamp"
+                }
+            }
+            datatype
+        }
+    }
+
+
 
 }

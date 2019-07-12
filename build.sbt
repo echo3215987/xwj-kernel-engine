@@ -1,13 +1,13 @@
 name := "xwj_kernel_engine"
 
-version := "0.1"
+version := "1.0.0"
 
 scalaVersion := "2.12.8"
 //scalaVersion := "2.11.8"
 
 mainClass in assembly := Some("com.foxconn.iisd.bd.rca.XWJKernelEngine")
 
-assemblyJarName in assembly := { s"${name.value}.jar" }
+assemblyJarName in assembly := { s"${name.value}-dev-${version.value}.jar" }
 
 val sparkVersion = "2.4.0"
 //val hadoopVersion = "2.7.2"
@@ -76,9 +76,9 @@ assemblyMergeStrategy in assembly := {
         }
     case PathList(ps @ _*)
         if ps contains "foxconn" => MergeStrategy.first
-    case PathList(ps @ _*)
-        if ps contains "databricks" => MergeStrategy.first
-    case PathList("org", "apache", "commons", "compress", ps @ _*) => MergeStrategy.first
+//    case PathList(ps @ _*)
+//        if ps contains "databricks" => MergeStrategy.first
+//    case PathList("org", "apache", "commons", "compress", ps @ _*) => MergeStrategy.first
     case x =>
         MergeStrategy.discard
         //MergeStrategy.first

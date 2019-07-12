@@ -12,6 +12,7 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.TimestampType
 import org.apache.spark.sql.{Column, Encoders, SparkSession}
 import org.apache.spark.storage.StorageLevel
+import com.foxconn.iisd.bd.rca.SparkUDF._
 
 object XWJKernelEngine {
 
@@ -19,6 +20,7 @@ object XWJKernelEngine {
   val datetimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.TAIWAN)
 
   def main(args: Array[String]): Unit = {
+
 
     val limit = 1
     var count = 0
@@ -127,7 +129,6 @@ object XWJKernelEngine {
     try {
 
       //(1)測試結果表
-
       val testDetailDestPath = IoUtils.flatMinioFiles(spark,
         flag,
         testDetailPath,
@@ -135,16 +136,7 @@ object XWJKernelEngine {
 
       val testDetailSourceDf = IoUtils.getDfFromPath(spark, testDetailDestPath.toString, testDetailColumns, dataSeperator)
 
-
-      //val testDetailSourceDfCnt = testDetailSourceDf.count()
-      //testDetailSourceDf.select("test_item", "test_value", "test_upper").show(false)
       var testDetailTempDf = testDetailSourceDf.distinct()
-        /*.withColumn("test_item", parseArrayToString(split(trim($"test_item"), "\001")))
-        .withColumn("test_item", concat(lit("ARRAY["), $"test_item", lit("]")))
-        .withColumn("test_value", parseStringToJSONString(split(trim($"test_value"), "\001")))
-        .withColumn("test_upper", parseStringToJSONString(split(trim($"test_upper"), "\001")))
-        .withColumn("test_lower", parseStringToJSONString(split(trim($"test_lower"), "\001")))
-        .withColumn("test_unit", parseStringToJSONString(split(trim($"test_unit"), "\001")))*/
         .withColumn("test_item", split(trim($"test_item"), "\001"))
         .withColumn("test_value", split(trim($"test_value"), "\001"))
         .withColumn("test_upper", split(trim($"test_upper"), "\001"))
@@ -170,32 +162,16 @@ object XWJKernelEngine {
 //                        testDetailSourceDf.select("test_unit").show(false)
 //                  testDetailSourceDf.printSchema()
       val testDetailCockroachDf = testDetailTempDf
-          .withColumn("test_starttime",
-            testDetailDateStringToTimestamp("test_starttime", "log_prop", "test_detail_dt_fmt"))
-          .withColumn("test_endtime",
-            testDetailDateStringToTimestamp("test_endtime", "log_prop", "test_detail_dt_fmt"))
-          .withColumn("create_time",
-            testDetailDateStringToTimestamp("create_time", "log_prop", "test_detail_dt_fmt"))
-          .withColumn("start_date",
-            testDetailDateStringToTimestamp("start_date", "log_prop", "test_detail_dt_fmt"))
-          .withColumn("update_time",
-            testDetailDateStringToTimestamp("update_time", "log_prop", "test_detail_dt_fmt"))
-
-//        .withColumn("test_starttime",
-//          unix_timestamp(trim($"test_starttime"),
-//            configLoader.getString("log_prop", "test_detail_dt_fmt")).cast(TimestampType))
-//        .withColumn("test_endtime",
-//          unix_timestamp(trim($"test_endtime"),
-//            configLoader.getString("log_prop", "test_detail_dt_fmt")).cast(TimestampType))
-//        .withColumn("create_time",
-//          unix_timestamp(trim($"create_time"),
-//            configLoader.getString("log_prop", "test_detail_dt_fmt")).cast(TimestampType))
-//        .withColumn("start_date",
-//          unix_timestamp(trim($"start_date"),
-//            configLoader.getString("log_prop", "test_detail_dt_fmt")).cast(TimestampType))
-//        .withColumn("update_time",
-//          unix_timestamp(trim($"update_time"),
-//            configLoader.getString("log_prop", "test_detail_dt_fmt")).cast(TimestampType))
+        .withColumn("test_starttime",
+          testDetailDateStringToTimestamp("test_starttime", "log_prop", "test_detail_dt_fmt"))
+        .withColumn("test_endtime",
+          testDetailDateStringToTimestamp("test_endtime", "log_prop", "test_detail_dt_fmt"))
+        .withColumn("create_time",
+          testDetailDateStringToTimestamp("create_time", "log_prop", "test_detail_dt_fmt"))
+        .withColumn("start_date",
+          testDetailDateStringToTimestamp("start_date", "log_prop", "test_detail_dt_fmt"))
+        .withColumn("update_time",
+          testDetailDateStringToTimestamp("update_time", "log_prop", "test_detail_dt_fmt"))
         .withColumn("test_item", parseArrayToString($"test_item"))
         .withColumn("test_item", concat(lit("ARRAY["), $"test_item", lit("]")))
         .withColumn("test_value", parseStringToJSONString($"test_value"))
@@ -212,38 +188,36 @@ object XWJKernelEngine {
         configLoader.getString("log_prop", "test_detail_table"),
         numExecutors)
 
-
       //insert product station to mysql
       //將測項上下界撈出來之後, 根據測試版號與時間選最新
-
-//      testDetailTempDf.select("product", "station_name", "station_id", "test_item",
-//        "test_upper", "test_lower", "test_unit", "test_version", "test_starttime").show(false)
-
-      var itemSpecColumn = List("product", "station_name", "station_id", "test_item",
-        "test_upper", "test_lower", "test_unit", "test_version", "test_starttime")
-      //testDetailTempDf.select(itemSpecColumn.head, itemSpecColumn.tail:_*).show(false)
-
       testDetailTempDf = testDetailTempDf
-        .withColumn("temp", arrays_zip($"test_item", $"test_upper", $"test_lower", $"test_unit"))
+        .withColumn("temp", arrays_zip($"test_item", $"test_upper", $"test_lower", $"test_unit", $"test_value"))
         .withColumn("temp", explode($"temp"))
-        .selectExpr("product", "station_name", "station_id", "temp.test_item as test_item", "temp.test_upper as test_upper",
-        "temp.test_lower as test_lower", "temp.test_unit as test_unit", "test_version", "test_starttime")
-        //控制字元需要轉換嗎(mysql)
+        .selectExpr("product", "station_name", "temp.test_item as test_item", "temp.test_upper as test_upper",
+        "temp.test_lower as test_lower", "temp.test_unit as test_unit", "temp.test_value as test_value", "test_version", "test_starttime")
+        .withColumn("test_item", regexp_replace($"test_item", "\004", "^D"))
         .withColumn("test_upper", split(split(col("test_upper"), "\004").getItem(1), "\003").getItem(1))
         .withColumn("test_lower", split(split(col("test_lower"), "\004").getItem(1), "\003").getItem(1))
         .withColumn("test_unit", split(split(col("test_unit"), "\004").getItem(1), "\003").getItem(1))
+        .withColumn("test_value", split(split(col("test_value"), "\004").getItem(1), "\003").getItem(1))
+        .withColumn("test_item_datatype", castColumnDataType(col("test_value")))
+        .drop("test_value")
+      testDetailTempDf.show(false)
 
       val productList = testDetailTempDf.select("product").dropDuplicates().as(Encoders.STRING).collect()
 
       val mariadbUtils = new MariadbUtils()
 
+      //insert product item spec
+      var itemSpecColumn = List("product", "station_name", "test_item",
+        "test_upper", "test_lower", "test_unit", "test_version", "test_starttime", "test_item_datatype")
+      //testDetailTempDf.select(itemSpecColumn.head, itemSpecColumn.tail:_*).show(false)
       val productItemSpecDf = mariadbUtils
         .getDfFromMariadb(spark, "product_item_spec")
         .select(itemSpecColumn.head, itemSpecColumn.tail:_*)
         .where(col("product").isin(productList:_*))
 
       testDetailTempDf = productItemSpecDf.union(testDetailTempDf)
-
 
       val wSpec = Window.partitionBy(col("product"), col("station_name"),
         col("test_item"))
@@ -252,16 +226,17 @@ object XWJKernelEngine {
       testDetailTempDf = testDetailTempDf
         .withColumn("rank", rank().over(wSpec))
         .where($"rank".equalTo(1)).drop("rank")
+        .drop("test_value")
 
 
       //將資料儲存進Mariadb
       println("saveToMariadb --> testDetailTempDf")
 
-//      mariadbUtils.saveToMariadb(
-//        testDetailTempDf,
-//        "product_item_spec",
-//        numExecutors
-//      )
+      mariadbUtils.saveToMariadb(
+        testDetailTempDf,
+        "product_item_spec",
+        numExecutors
+      )
 
       //insert product station
       var productStationDf = mariadbUtils
@@ -278,12 +253,11 @@ object XWJKernelEngine {
 
       println("saveToMariadb --> productStationDf")
 
-//      mariadbUtils.saveToMariadb(
-//        productStationDf,
-//        "product_station",
-//        numExecutors
-//      )
-
+      mariadbUtils.saveToMariadb(
+        productStationDf,
+        "product_station",
+        numExecutors
+      )
 
       //(2)工單
       val woPath = configLoader.getString(logPathSection, "wo_path")
@@ -307,6 +281,30 @@ object XWJKernelEngine {
       IoUtils.saveToCockroachdb(woSourceDf,
         configLoader.getString("log_prop", "wo_table"),
         numExecutors)
+
+      //(3)關鍵物料
+      val matPath = configLoader.getString(logPathSection, "mat_path")
+
+      val matFileLmits = configLoader.getString(logPathSection, "mat_file_limits").toInt
+
+      val matColumns = configLoader.getString("log_prop", "mat_col")
+
+      val matTable = configLoader.getString("log_prop", "mat_table")
+      val matDestPath = IoUtils.flatMinioFiles(spark,
+        flag,
+        matPath,
+        matFileLmits)
+
+      var matSourceDf = IoUtils.getDfFromPath(spark, matDestPath.toString, matColumns, dataSeperator)
+      matSourceDf = matSourceDf.withColumn("upsert_time", lit(jobStartTime).cast(TimestampType))
+
+      //將關鍵物料資料儲存進Cockroachdb
+      println("saveToCockroachdb --> matSourceDf")
+      IoUtils.saveToCockroachdb(matSourceDf, matTable, numExecutors)
+      //將關鍵物料資料儲存進mariadb
+      println("saveToMariadb --> matSourceDf")
+      mariadbUtils.saveToMariadb(matSourceDf.drop("upsert_time"), matTable, numExecutors)
+
 
     } catch {
       case ex: FileNotFoundException => {

@@ -99,4 +99,8 @@ class ConfigLoader() extends Serializable {
     def setDefaultConfigPath(defaultConfigPath: String): Unit = {
         this.defaultConfigPath = defaultConfigPath
     }
+
+    def getDefaultConfigPath(): String = {
+        defaultConfigPath
+    }
 }

@@ -4,6 +4,9 @@ import java.net.URI
 import java.sql.DriverManager
 import java.util
 import java.util.Properties
+import java.io.FileNotFoundException
+import java.text.SimpleDateFormat
+import java.util.Date
 
 import com.foxconn.iisd.bd.rca.XWJKernelEngine.configLoader
 import org.apache.hadoop.fs._
@@ -13,6 +16,52 @@ import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import scala.io.Source
 
 object IoUtils {
+
+    private def getDatasetSdfFormat(): String = {
+      return configLoader.getString("dataset", "sdf_format")
+    }
+
+    private def getCockroachdbUrl(): String = {
+      return configLoader.getString("cockroachdb", "conn_str")
+    }
+
+    private def getCockroachdbDriver(): String = {
+      return configLoader.getString("cockroachdb", "driver")
+    }
+
+    private def getCockroachdbUser(): String = {
+      return configLoader.getString("cockroachdb", "username")
+    }
+
+    private def getCockroachdbPassword(): String = {
+      return configLoader.getString("cockroachdb", "password")
+    }
+
+    private def getCockroachdbConnectionProperties(): Properties ={
+      val _cockroachdbConnectionProperties = new Properties()
+
+      _cockroachdbConnectionProperties.put(
+        "user",
+        configLoader.getString("cockroachdb", "username")
+      )
+
+      _cockroachdbConnectionProperties.put(
+        "password",
+        configLoader.getString("cockroachdb", "password")
+      )
+
+      _cockroachdbConnectionProperties.put(
+        "sslmode",
+        configLoader.getString("cockroachdb", "sslmode")
+      )
+
+      _cockroachdbConnectionProperties.put(
+        "allowEncodingChanges",
+        "true"
+      )
+
+      return _cockroachdbConnectionProperties
+    }
 
     def flatMinioFiles(spark: SparkSession, flag:String, srcPathStr: String, fileLimits: Integer): Path = {
         var count = 0
@@ -26,7 +75,7 @@ object IoUtils {
             fileSystem.mkdirs(destPath)
         }
 
-        //try {
+        try {
             val wipPathFiles = fileSystem.listFiles(srcPath, true)
             while (count < fileLimits && wipPathFiles.hasNext()) {
                 val file = wipPathFiles.next()
@@ -36,21 +85,22 @@ object IoUtils {
 
 
                 if (file.getLen > 0) {
-                  FileUtil.copy(fileSystem, file.getPath, fileSystem, tmpFilePath, false, true, spark.sparkContext.hadoopConfiguration)
-//                    println(s"[MOVE] ${file.getPath} -> ${tmpFilePath.toString} : ${file.getLen}")
-//                    fileSystem.rename(file.getPath, tmpFilePath)
+//                  println(s"[COPY] ${file.getPath} -> ${tmpFilePath.toString} : ${file.getLen}")
+//                  FileUtil.copy(fileSystem, file.getPath, fileSystem, tmpFilePath, false, true, spark.sparkContext.hadoopConfiguration)
+                  println(s"[MOVE] ${file.getPath} -> ${tmpFilePath.toString} : ${file.getLen}")
+                  fileSystem.rename(file.getPath, tmpFilePath)
 
-                    count = count + 1
-                    Thread.sleep(2000)
+                  count = count + 1
+                  Thread.sleep(2000)
 
                 }
             }
-        /*} catch {
+        } catch {
             case ex: FileNotFoundException => {
                 //                ex.printStackTrace()
                 println("===> FileNotFoundException !!!")
             }
-        }*/
+        }
         return destPath
     }
 
@@ -80,8 +130,8 @@ object IoUtils {
         return spark.createDataFrame(rdd, schema)
     }
 
-//    def getDfFromCockroachdb(spark: SparkSession, table: String): DataFrame = {
-//
+    def getDfFromCockroachdb(spark: SparkSession, table: String, predicates: Array[String]): DataFrame = {
+
 //        val cockroachdbUrl = configLoader.getString("cockroachdb", "conn_str")
 //        val cockroachdbConnectionProperties = new Properties()
 //
@@ -99,56 +149,33 @@ object IoUtils {
 //            "sslmode",
 //            configLoader.getString("cockroachdb", "sslmode")
 //        )
-//
-//        return spark.read.jdbc(cockroachdbUrl, table, cockroachdbConnectionProperties)
-//    }
 
-    def getDfFromCockroachdb(spark: SparkSession, table: String, predicates: Array[String]): DataFrame = {
-
-        val cockroachdbUrl = configLoader.getString("cockroachdb", "conn_str")
-        val cockroachdbConnectionProperties = new Properties()
-
-        cockroachdbConnectionProperties.put(
-            "user",
-            configLoader.getString("cockroachdb", "username")
-        )
-
-        cockroachdbConnectionProperties.put(
-            "password",
-            configLoader.getString("cockroachdb", "password")
-        )
-
-        cockroachdbConnectionProperties.put(
-            "sslmode",
-            configLoader.getString("cockroachdb", "sslmode")
-        )
-
-        return spark.read.jdbc(cockroachdbUrl, table, predicates, cockroachdbConnectionProperties)
+        return spark.read.jdbc(this.getCockroachdbUrl, table, predicates, this.getCockroachdbConnectionProperties)
     }
 
     def saveToCockroachdb(df: DataFrame, table: String, numExecutors: Int): Unit = {
-        val cockroachdbUrl = configLoader.getString("cockroachdb", "conn_str")
-        val cockroachdbConnectionProperties = new Properties()
+//        val cockroachdbUrl = configLoader.getString("cockroachdb", "conn_str")
+//        val cockroachdbConnectionProperties = new Properties()
 
-        cockroachdbConnectionProperties.put(
-            "user",
-            configLoader.getString("cockroachdb", "username")
-        )
-
-        cockroachdbConnectionProperties.put(
-            "password",
-            configLoader.getString("cockroachdb", "password")
-        )
-
-        cockroachdbConnectionProperties.put(
-            "sslmode",
-            configLoader.getString("cockroachdb", "sslmode")
-        )
-
-        cockroachdbConnectionProperties.put(
-            "allowEncodingChanges",
-            "true"
-        )
+//        cockroachdbConnectionProperties.put(
+//            "user",
+//            configLoader.getString("cockroachdb", "username")
+//        )
+//
+//        cockroachdbConnectionProperties.put(
+//            "password",
+//            configLoader.getString("cockroachdb", "password")
+//        )
+//
+//        cockroachdbConnectionProperties.put(
+//            "sslmode",
+//            configLoader.getString("cockroachdb", "sslmode")
+//        )
+//
+//        cockroachdbConnectionProperties.put(
+//            "allowEncodingChanges",
+//            "true"
+//        )
 
         val sqlPrefix =
             "UPSERT INTO " + table +
@@ -164,8 +191,8 @@ object IoUtils {
             partition => {
 
                 val conn = DriverManager.getConnection(
-                    cockroachdbUrl,
-                    cockroachdbConnectionProperties)
+                    this.getCockroachdbUrl,
+                    this.getCockroachdbConnectionProperties)
 
                 conn.setAutoCommit(false)
 
@@ -216,45 +243,6 @@ object IoUtils {
             }
         }
     }
-
-//    def getFilesRows(spark: SparkSession, minioTempPath: Path): util.HashMap[String, Integer] = {
-//        var filesRowsMap = new util.HashMap[String, Integer]
-//        try {
-//            val fileSystem = FileSystem.get(URI.create(minioTempPath.toString), spark.sparkContext.hadoopConfiguration)
-//            val pathFiles = fileSystem.listFiles(minioTempPath, true)
-//            var count = 0
-//            while (pathFiles.hasNext()) {
-//                val file = pathFiles.next()
-//                val filename = file.getPath.getName
-//                val tmpFilePath = new Path(minioTempPath, filename)
-//                val inputStream = fileSystem.open(tmpFilePath)
-//                val reader = new BufferedReader(new InputStreamReader(inputStream))
-//                var line = reader.readLine
-//                var rows = 0
-//                while(line != null) {
-//                    rows = rows + 1
-//                    line = reader.readLine()
-//                }
-//
-//                println("rows: " + rows)
-//                filesRowsMap.put(filename, rows)
-//
-//                if(reader != null){
-//                    reader.close()
-//                }
-//
-//                count = count + 1
-//                Thread.sleep(2000)
-//            }
-//            println("count: " + count)
-//
-//        } catch {
-//            case ex: Exception => {
-//                println("exception : " + ex.getMessage)
-//            }
-//        }
-//        filesRowsMap
-//    }
 
     def getFilesNameList(spark: SparkSession, minioTempPath: Path): util.ArrayList[String] = {
         var filesNameList = new util.ArrayList[String]
@@ -338,6 +326,36 @@ object IoUtils {
         finally {
             writer.close()
         }
+    }
+
+    //utils
+    def convertToDate(input: String) = {
+      var dateFormats = List[SimpleDateFormat]()
+        this.getDatasetSdfFormat()
+//      configLoader.getString("dataset", "sdf_format")
+//        "M/dd/yyyy,dd.M.yyyy,M/dd/yyyy hh:mm:ss a,dd.M.yyyy hh:mm:ss a,dd.MMM.yyyy,dd-MMM-yyyy"
+        .split(",").map(dateformat => dateFormats = dateFormats :+ new SimpleDateFormat(dateformat))
+
+      var result = false
+      if (input == null) {
+        result
+      }
+      for (format <- dateFormats) {
+        try {
+          format.parse(input)
+          result = true
+        } catch {
+          case ex: Exception => {
+            // ex.printStackTrace()
+//            println("===> cast timestamp type Exception !!!")
+          }
+        }
+        if (result){
+          result
+        }
+
+      }
+      result
     }
 
 }

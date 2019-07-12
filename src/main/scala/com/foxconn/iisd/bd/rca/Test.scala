@@ -2,6 +2,8 @@ package com.foxconn.iisd.bd.rca
 
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import java.util.Date
+import java.text.SimpleDateFormat
 
 import org.apache.spark.sql.SparkSession
 
@@ -19,7 +21,11 @@ object Test{
           .getOrCreate()
 
         spark.sparkContext.setLogLevel("ERROR")
+        val id = 15
+        val datasetTableName = "`data_set_bigtable@"+id+"`"
+        println(datasetTableName.substring(1,datasetTableName.length-1))
 
+        println(IoUtils.convertToDate("5/30/2019 8:21:36"))
 
 
 /*
@@ -55,13 +61,13 @@ object Test{
 */
 
         //try {
-        val testDetailColumns = configLoader.getString("log_prop", "test_detail_col")
-        val dataSeperator = configLoader.getString("log_prop", "log_seperator")
-        //val testDetailDestPath = "C:\\Users\\foxconn\\Desktop\\RCA\\ask\\.txt\\part-00000-884c2f76-b731-4f9c-9ba5-c35e3c1558c3-c000.txt"
-        //val testDetailDestPath = "C:\\Users\\pj17_\\Desktop\\part-00000-884c2f76-b731-4f9c-9ba5-c35e3c1558c3-c000.txt"
-        val testDetailDestPath = "C:\\Users\\foxconn\\Desktop\\test.csv"
-        var df = spark.read.option("header", "true").csv(testDetailDestPath)//.show(false)
-        df.select("AE-39@Special Build Description", "AE-39@Unit Number", "AE-39@Station ID", "AE-39@TestResult")
+//        val testDetailColumns = configLoader.getString("log_prop", "test_detail_col")
+//        val dataSeperator = configLoader.getString("log_prop", "log_seperator")
+//        //val testDetailDestPath = "C:\\Users\\foxconn\\Desktop\\RCA\\ask\\.txt\\part-00000-884c2f76-b731-4f9c-9ba5-c35e3c1558c3-c000.txt"
+//        //val testDetailDestPath = "C:\\Users\\pj17_\\Desktop\\part-00000-884c2f76-b731-4f9c-9ba5-c35e3c1558c3-c000.txt"
+//        val testDetailDestPath = "C:\\Users\\foxconn\\Desktop\\test.csv"
+//        var df = spark.read.option("header", "true").csv(testDetailDestPath)//.show(false)
+//        df.select("AE-39@Special Build Description", "AE-39@Unit Number", "AE-39@Station ID", "AE-39@TestResult")
         /*val testDetailSourceDf = IoUtils.getDfFromPath(spark, testDetailDestPath.toString, testDetailColumns, dataSeperator)
 
 

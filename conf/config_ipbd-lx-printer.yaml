@@ -1,21 +1,21 @@
 spark:
-    job_name: "dev-local-xwj-KernelEngine"
+    job_name: "ipbd-lx-printer-xwj-KernelEngineBigtable"
     master: "local"
     conf: "spark.driver.memory=2g;
            spark.executor.memory=2g"
-#spark.sql.session.timeZone=CST
+
 minio:
     endpoint:   "http://10.57.232.167:31359"
     accessKey:  "AKIAIOSFODNN7EXAMPLE"
     secretKey:  "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-    bucket:     "rca-dev"
+    bucket:     "rca"
 
 cockroachdb:
     adapter:    "postgresql"
-    host:       "10.57.232.61"
+    host:       "10.57.232.63"
     port:       "26257"
     sslmode:    "require"
-    database:   "rca-dev"
+    database:   "rca-ipbd-lx-printer"
     username:   "bigdata"
     password:   "bigdata"
     conn_str:   "jdbc:{{adapter}}://{{host}}:{{port}}/{{database}}"
@@ -24,7 +24,7 @@ mariadb:
     adapter:    "mysql"
     host:       "10.57.232.61"
     port:       "3308"
-    database:   "rca-dev"
+    database:   "rca-ipbd-lx-printer"
     username:   "edgeserver"
     password:   "Foxconn123654!@"
     conn_str:   "jdbc:{{adapter}}://{{host}}:{{port}}/{{database}}?useSSL=false&useUnicode=true&characterEncoding=UTF-8"
@@ -48,7 +48,7 @@ part_datecode_rules:
     4BH6: "PARTSN,10,14"
 
 local_log_path:
-    data_base_path: "file:/C:/Users/foxconn/Desktop/RCA/ask/.txt"
+    data_base_path: "/Users/hanlinux/data/rca/IPPD-L10"
     wip_path: "{{data_base_path}}/IPPD-L10_SFC_20190313.txt"
     wip_parts_path: "{{data_base_path}}/IPPD-L10_PARTS_20190313.txt"
     bobcat_path: "{{data_base_path}}/IPPD-L10_TEST_20190313.txt"
@@ -74,13 +74,13 @@ local_log_path:
     mat_file_limits: "1"
 
 minio_log_path:
-    data_base_path: "s3a://rca-dev/IPPD-L10/Data"
+    data_base_path: "s3a://rca/IPPD-L10/Data"
     wip_path: "{{data_base_path}}/SFC/R_WIP_SFC/"
     wip_parts_path: "{{data_base_path}}/SFC/R_WIP_PARTS_SFC/"
     bobcat_path: "{{data_base_path}}/Bobcat/"
-    wip_file_limits: "1"
-    wip_parts_file_limits: "1"
-    bobcat_file_limits: "1"
+    wip_file_limits: "300"
+    wip_parts_file_limits: "300"
+    bobcat_file_limits: "30"
 
     test_detail_compression_path: "{{data_base_path}}/TEST_DETAIL_COMPRESSION/"
     test_detail_compression_tmp_path: "{{data_base_path}}/TEST_DETAIL_COMPRESSION_TMP/"
@@ -116,7 +116,6 @@ log_prop:
     wip_parts_table: "part_detail"
     wip_parts_dt_fmt: "yyyy-MM-dd HH:mm:ss"
 
-    #CN8BS7C334_||_TLEOL_||_TLEOL_||_LC_TLEOL_41_||_11/29/2018 8:33:10 AM_||_11/29/2018 8:38:46 AM_||_0_||__||__||_11/29/2018 8:38:46 AM
     bobcat_col: "sn,station,stationcode,machine,start_time,end_time,istestfail,symptom,desc_,uploadtime,c1,c2,c3"
     bobcat_table: "test"
     bobcat_dt_fmt: "yyyy-MM-dd HH:mm:ss"
@@ -126,16 +125,8 @@ log_prop:
     test_detail_table: "test_detail"
     test_detail_dt_fmt: "yyyy-MM-dd HH:mm:ss"
 
-    #CHEB_||_296269793_||_CEB1_||_V1N01B#629_||_V1N01B#629_||_V1N01B#629_||_1_||_CHEB_WO_20190524171446.dat_||_SOR_||_ZFRT_||__||_HP DeskJet 2620 All-in-One Printer_||_20190523_||_P2_||_20190523
-    #SELECT product, build_name, file_name, wo, wo_type, plant_code, vendor_pn, hhpn, plan_qty, config, component_type, main_wo, upsert_time
-    wo_col: "plant_code,wo,wo_type,hhpn,vendor_pn,config,plan_qty,file_name,build_name,component_type,main_wo,product,releasedate,prodversion,createDate"
-    wo_table: "work_order"
-    wo_dt_fmt: "yyyy-MM-dd HH:mm:ss"
-
-    #Taiji Base_||_SOR_||__||_V1N01B#629_||_ZFRT_||_ZFRT_||__||_V1N01B#629_||_V1N01B#629_||__||_CHEB_WO_20190524171446.dat_||__||__||__||__||__||__||__||__||__||__||_1_||_
-    mat_col: "product,build_name,file_name,config_name,component_type,component,version,hhpn,oempn,description,config,vendor,per,aoh,color,config_description,oem_notes,drp_notes,notes,etas,etds,input_qty,excel_row_id"
-    mat_table: "config_component"
-    mat_dt_fmt: "yyyy-MM-dd HH:mm:ss"
+    mat_path: "{{data_base_path}}/MAT/"
+    mat_file_limits: "1"
 
     log_seperator: "_\\|\\|_"
     log_seperator_non_escape: "_||_"
@@ -164,6 +155,3 @@ test_floor_line:
 
 taiji_base:
     code: "06MD,06PK,06PN,06P4,06PP,06PS,06PT,06PV,06PX,06PY,06PZ,06Q2,06Q3,06Q4,06Q7,06Q8,06Q9,06QD,070W,070X"
-
-dataset:
-    sdf_format: "M/dd/yyyy,dd.M.yyyy,M/dd/yyyy hh:mm:ss a,dd.M.yyyy hh:mm:ss a,dd.MMM.yyyy,dd-MMM-yyyy"

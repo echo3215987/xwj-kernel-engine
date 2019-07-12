@@ -12,7 +12,7 @@ object ParseFile{
     val datetimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.US)
 
     def main(args: Array[String]): Unit = {
-        val date = "05130520"
+        val date = "06170624"
         val spark = SparkSession.builder()
           .appName("Spark SQL basic example")
           .config("spark.master", "local")
@@ -25,7 +25,7 @@ object ParseFile{
         df.show(false)
         println(df.count())
 */
-        var originalDF = spark.read.option("io.compression.codecs","io.sensesecure.hadoop.xz.XZCodec")
+        var originalDF = spark.read//.option("io.compression.codecs","io.sensesecure.hadoop.xz.XZCodec")
             .text("C:\\Users\\foxconn\\Desktop\\WuDang\\WuDang_"+date+"\\*")
             .selectExpr("input_file_name() as filename").distinct()
             .filter(col("filename").contains("06MD")
