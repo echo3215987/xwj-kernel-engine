@@ -5,6 +5,7 @@ import java.text.SimpleDateFormat
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
+import com.foxconn.iisd.bd.rca.KernelEngineBackup.configLoader
 import com.foxconn.iisd.bd.rca.SparkUDF.{parseArrayToString, parseStringToJSONString}
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.sql.expressions.Window
@@ -116,9 +117,18 @@ object XWJKernelEngine {
 
     val testDetailFileLmits = configLoader.getString(logPathSection, "test_detail_file_limits").toInt
 
-    //"sn,build_name,build_description,unit_number,station_id,test_status,test_starttime,test_endtime,list_of_failure,list_of_failure_detail,test_phase,machine_id,factory_code,floor,line_id,test_item,test_value,test_unit,test_lower,test_upper,create_time,update_time,station_name,start_date,product,test_version"
-    //CN95I870ZC06MD_||_SOR_||_SOR_||_CN95I870ZC06MD_||_L7_TLEOL_06_||_Exception_||_2019/05/18 06:36_||_2019/05/18 06:36_||_PcaVerifyFirmwareRev_||_Error_||_MP_||__||_CQ_||_D62_||_2_||_ProcPCClockSync^DResultInfo^APcaVerifyFirmwareRev^DResultInfo^APcaVerifyFirmwareRev^DExpectedVersion^APcaVerifyFirmwareRev^DReadVersion^APcaVerifyFirmwareRev^DDateTimeStarted^APcaVerifyFirmwareRev^DActualFWUpdate^APcaVerifyFirmwareRev^DFWUpdateDSIDFirst_||_ProcPCClockSync^DResultInfo^C^APcaVerifyFirmwareRev^DResultInfo^C^APcaVerifyFirmwareRev^DExpectedVersion^C^APcaVerifyFirmwareRev^DReadVersion^C^APcaVerifyFirmwareRev^DDateTimeStarted^C5/18/2019 5:29:48 AM^APcaVerifyFirmwareRev^DActualFWUpdate^C^APcaVerifyFirmwareRev^DFWUpdateDSIDFirst^C_||_ProcPCClockSync^DResultInfo^C^APcaVerifyFirmwareRev^DResultInfo^C^APcaVerifyFirmwareRev^DExpectedVersion^C^APcaVerifyFirmwareRev^DReadVersion^C^APcaVerifyFirmwareRev^DDateTimeStarted^C^APcaVerifyFirmwareRev^DActualFWUpdate^C^APcaVerifyFirmwareRev^DFWUpdateDSIDFirst^C_||_ProcPCClockSync^DResultInfo^C^APcaVerifyFirmwareRev^DResultInfo^C^APcaVerifyFirmwareRev^DExpectedVersion^C^APcaVerifyFirmwareRev^DReadVersion^CTJP1FN1845AR^APcaVerifyFirmwareRev^DDateTimeStarted^C^APcaVerifyFirmwareRev^DActualFWUpdate^C169^APcaVerifyFirmwareRev^DFWUpdateDSIDFirst^C_||_ProcPCClockSync^DResultInfo^C^APcaVerifyFirmwareRev^DResultInfo^C^APcaVerifyFirmwareRev^DExpectedVersion^C^APcaVerifyFirmwareRev^DReadVersion^CTJP1FN1845AR^APcaVerifyFirmwareRev^DDateTimeStarted^C^APcaVerifyFirmwareRev^DActualFWUpdate^C169^APcaVerifyFirmwareRev^DFWUpdateDSIDFirst^C_||_2019/05/18 06:36_||_2019/05/18 06:36_||_TLEOL_||_2019/05/18 06:36_||_TaiJi Base_||_42.3.8 REV_37_Taiji25
     val testDetailColumns = configLoader.getString("log_prop", "test_detail_col")
+
+    val testDetailTestColumns = configLoader.getString("log_prop", "test_detail_test_cols")
+
+    val ctrlACode = "\001"
+    val ctrlAValue = "^A"
+
+    val ctrlCCode = "\003"
+
+    val ctrlDCode = "\004"
+    val ctrlDValue = "^D"
+
 
     val dataSeperator = configLoader.getString("log_prop", "log_seperator")
 
@@ -136,17 +146,21 @@ object XWJKernelEngine {
 
       val testDetailSourceDf = IoUtils.getDfFromPath(spark, testDetailDestPath.toString, testDetailColumns, dataSeperator)
 
+
       var testDetailTempDf = testDetailSourceDf.distinct()
-        .withColumn("test_item", split(trim($"test_item"), "\001"))
-        .withColumn("test_value", split(trim($"test_value"), "\001"))
-        .withColumn("test_upper", split(trim($"test_upper"), "\001"))
-        .withColumn("test_lower", split(trim($"test_lower"), "\001"))
-        .withColumn("test_unit", split(trim($"test_unit"), "\001"))
-        .withColumn("list_of_failure", regexp_replace($"list_of_failure", "\001", "^A"))
-        .withColumn("list_of_failure_detail", regexp_replace($"list_of_failure_detail", "\001", "^A"))
+        .withColumn("test_item", split(trim($"test_item"), ctrlACode))
+        .withColumn("test_value", split(trim($"test_value"), ctrlACode))
+        .withColumn("test_upper", split(trim($"test_upper"), ctrlACode))
+        .withColumn("test_lower", split(trim($"test_lower"), ctrlACode))
+        .withColumn("test_unit", split(trim($"test_unit"), ctrlACode))
+//        新增兩個欄位test_item_result, test_item_result_detail
+        .withColumn("test_item_result", split(trim($"test_item_result"), ctrlACode))
+        .withColumn("test_item_result_detail", split(trim($"test_item_result_detail"), ctrlACode))
+
+        .withColumn("list_of_failure", regexp_replace($"list_of_failure", ctrlACode, ctrlAValue))
+        .withColumn("list_of_failure_detail", regexp_replace($"list_of_failure_detail", ctrlACode, ctrlAValue))
         .persist(StorageLevel.MEMORY_AND_DISK_SER_2)
 
-      //testDetailTempDf.select("test_item", "test_value", "test_upper").show(false)
       val testDetailSourceDfDistCnt = testDetailSourceDf.count()
 
       def  testDetailDateStringToTimestamp (colName:String, configkey: String, configValue: String): Column  = {
@@ -161,6 +175,7 @@ object XWJKernelEngine {
 //                        testDetailSourceDf.select("test_lower").show(false)
 //                        testDetailSourceDf.select("test_unit").show(false)
 //                  testDetailSourceDf.printSchema()
+
       val testDetailCockroachDf = testDetailTempDf
         .withColumn("test_starttime",
           testDetailDateStringToTimestamp("test_starttime", "log_prop", "test_detail_dt_fmt"))
@@ -178,10 +193,11 @@ object XWJKernelEngine {
         .withColumn("test_upper", parseStringToJSONString($"test_upper"))
         .withColumn("test_lower", parseStringToJSONString($"test_lower"))
         .withColumn("test_unit", parseStringToJSONString($"test_unit"))
+        .withColumn("test_item_result", parseStringToJSONString($"test_item_result"))
+        .withColumn("test_item_result_detail", parseStringToJSONString($"test_item_result_detail"))
         //存入upsert time
         .withColumn("upsert_time", lit(jobStartTime).cast(TimestampType))
 
-      //testDetailCockroachDf.select("upsert_time").show(false)
       //將測試結果表資料儲存進Cockroachdb
       println("saveToCockroachdb --> testDetailCockroachDf")
       IoUtils.saveToCockroachdb(testDetailCockroachDf,
@@ -194,12 +210,13 @@ object XWJKernelEngine {
         .withColumn("temp", arrays_zip($"test_item", $"test_upper", $"test_lower", $"test_unit", $"test_value"))
         .withColumn("temp", explode($"temp"))
         .selectExpr("product", "station_name", "temp.test_item as test_item", "temp.test_upper as test_upper",
-        "temp.test_lower as test_lower", "temp.test_unit as test_unit", "temp.test_value as test_value", "test_version", "test_starttime")
-        .withColumn("test_item", regexp_replace($"test_item", "\004", "^D"))
-        .withColumn("test_upper", split(split(col("test_upper"), "\004").getItem(1), "\003").getItem(1))
-        .withColumn("test_lower", split(split(col("test_lower"), "\004").getItem(1), "\003").getItem(1))
-        .withColumn("test_unit", split(split(col("test_unit"), "\004").getItem(1), "\003").getItem(1))
-        .withColumn("test_value", split(split(col("test_value"), "\004").getItem(1), "\003").getItem(1))
+          "temp.test_lower as test_lower", "temp.test_unit as test_unit", "temp.test_value as test_value",
+          "test_version", "test_starttime")
+        .withColumn("test_item", regexp_replace($"test_item", ctrlDCode, ctrlDValue))
+        .withColumn("test_upper", split(split(col("test_upper"), ctrlDCode).getItem(1), ctrlCCode).getItem(1))
+        .withColumn("test_lower", split(split(col("test_lower"), ctrlDCode).getItem(1), ctrlCCode).getItem(1))
+        .withColumn("test_unit", split(split(col("test_unit"), ctrlDCode).getItem(1), ctrlCCode).getItem(1))
+        .withColumn("test_value", split(split(col("test_value"), ctrlDCode).getItem(1), ctrlCCode).getItem(1))
         .withColumn("test_item_datatype", castColumnDataType(col("test_value")))
         .drop("test_value")
       testDetailTempDf.show(false)
@@ -209,12 +226,14 @@ object XWJKernelEngine {
       val mariadbUtils = new MariadbUtils()
 
       //insert product item spec
-      var itemSpecColumn = List("product", "station_name", "test_item",
-        "test_upper", "test_lower", "test_unit", "test_version", "test_starttime", "test_item_datatype")
-      //testDetailTempDf.select(itemSpecColumn.head, itemSpecColumn.tail:_*).show(false)
+      val itemSpecColumnStr = "product,station_name,test_item,test_upper,test_lower,test_unit,test_version,test_starttime,test_item_datatype"
+//      var itemSpecColumn = List("product", "station_name", "test_item",
+//        "test_upper", "test_lower", "test_unit", "test_version", "test_starttime", "test_item_datatype")
+      val itemSpecColumn = itemSpecColumnStr.split(",")
       val productItemSpecDf = mariadbUtils
         .getDfFromMariadb(spark, "product_item_spec")
-        .select(itemSpecColumn.head, itemSpecColumn.tail:_*)
+//        .select(itemSpecColumn.head, itemSpecColumn.tail:_*)
+        .selectExpr(itemSpecColumn: _*)
         .where(col("product").isin(productList:_*))
 
       testDetailTempDf = productItemSpecDf.union(testDetailTempDf)
@@ -227,7 +246,6 @@ object XWJKernelEngine {
         .withColumn("rank", rank().over(wSpec))
         .where($"rank".equalTo(1)).drop("rank")
         .drop("test_value")
-
 
       //將資料儲存進Mariadb
       println("saveToMariadb --> testDetailTempDf")
@@ -266,13 +284,19 @@ object XWJKernelEngine {
 
       val woColumns = configLoader.getString("log_prop", "wo_col")
 
+      val woDtfmt = configLoader.getString("log_prop", "wo_dt_fmt")
+
+
       val woDestPath = IoUtils.flatMinioFiles(spark,
         flag,
         woPath,
         woFileLmits)
 
       var woSourceDf = IoUtils.getDfFromPath(spark, woDestPath.toString, woColumns, dataSeperator)
-      woSourceDf = woSourceDf.drop("releasedate","prodversion","createDate")
+      woSourceDf = woSourceDf.drop("prodversion","create_date")
+        .withColumn("release_date", unix_timestamp(trim($"release_date"), woDtfmt)
+          .cast(TimestampType))
+//      woSourceDf = woSourceDf.drop("release_date","prodversion","create_date")
         .withColumn("upsert_time", lit(jobStartTime).cast(TimestampType))
       woSourceDf.show(false)
 

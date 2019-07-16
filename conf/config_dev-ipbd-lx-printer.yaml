@@ -1,5 +1,5 @@
 spark:
-    job_name: "dev-ipbd-lx-printer-xwj-KernelEngine"
+    job_name: "dev-local-xwj-KernelEngine"
     master: "local"
     conf: "spark.driver.memory=2g;
            spark.executor.memory=2g"
@@ -24,7 +24,7 @@ mariadb:
     adapter:    "mysql"
     host:       "10.57.232.61"
     port:       "3308"
-    database:   "rca-dev-ipbd-lx-printer"
+    database:   "rca-dev"
     username:   "edgeserver"
     password:   "Foxconn123654!@"
     conn_str:   "jdbc:{{adapter}}://{{host}}:{{port}}/{{database}}?useSSL=false&useUnicode=true&characterEncoding=UTF-8"
@@ -164,3 +164,6 @@ test_floor_line:
 
 taiji_base:
     code: "06MD,06PK,06PN,06P4,06PP,06PS,06PT,06PV,06PX,06PY,06PZ,06Q2,06Q3,06Q4,06Q7,06Q8,06Q9,06QD,070W,070X"
+
+dataset:
+    sdf_format: "M/dd/yyyy,dd.M.yyyy,M/dd/yyyy hh:mm:ss a,dd.M.yyyy hh:mm:ss a,dd.MMM.yyyy,dd-MMM-yyyy"
