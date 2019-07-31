@@ -5,7 +5,6 @@ import java.text.SimpleDateFormat
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-import com.foxconn.iisd.bd.rca.KernelEngineBackup.configLoader
 import com.foxconn.iisd.bd.rca.SparkUDF.{parseArrayToString, parseStringToJSONString}
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.sql.expressions.Window
@@ -19,6 +18,13 @@ object XWJKernelEngine {
 
   var configLoader = new ConfigLoader()
   val datetimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.TAIWAN)
+  val ctrlACode = "\001"
+  val ctrlAValue = "^A"
+
+  val ctrlCCode = "\003"
+
+  val ctrlDCode = "\004"
+  val ctrlDValue = "^D"
 
   def main(args: Array[String]): Unit = {
 
@@ -121,15 +127,6 @@ object XWJKernelEngine {
 
     val testDetailTestColumns = configLoader.getString("log_prop", "test_detail_test_cols")
 
-    val ctrlACode = "\001"
-    val ctrlAValue = "^A"
-
-    val ctrlCCode = "\003"
-
-    val ctrlDCode = "\004"
-    val ctrlDValue = "^D"
-
-
     val dataSeperator = configLoader.getString("log_prop", "log_seperator")
 
     ///////////
@@ -160,13 +157,12 @@ object XWJKernelEngine {
         .withColumn("list_of_failure", regexp_replace($"list_of_failure", ctrlACode, ctrlAValue))
         .withColumn("list_of_failure_detail", regexp_replace($"list_of_failure_detail", ctrlACode, ctrlAValue))
         .persist(StorageLevel.MEMORY_AND_DISK_SER_2)
-
+testDetailTempDf.show(false)
       val testDetailSourceDfDistCnt = testDetailSourceDf.count()
 
       def  testDetailDateStringToTimestamp (colName:String, configkey: String, configValue: String): Column  = {
         unix_timestamp(trim(col(colName)),
           configLoader.getString(configkey, configValue)).cast(TimestampType)
-
       }
 
       //TODO: summary file
@@ -197,7 +193,7 @@ object XWJKernelEngine {
         .withColumn("test_item_result_detail", parseStringToJSONString($"test_item_result_detail"))
         //存入upsert time
         .withColumn("upsert_time", lit(jobStartTime).cast(TimestampType))
-
+      testDetailCockroachDf.select("test_item").show(false)
       //將測試結果表資料儲存進Cockroachdb
       println("saveToCockroachdb --> testDetailCockroachDf")
       IoUtils.saveToCockroachdb(testDetailCockroachDf,

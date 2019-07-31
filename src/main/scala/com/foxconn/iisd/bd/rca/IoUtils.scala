@@ -131,52 +131,10 @@ object IoUtils {
     }
 
     def getDfFromCockroachdb(spark: SparkSession, table: String, predicates: Array[String]): DataFrame = {
-
-//        val cockroachdbUrl = configLoader.getString("cockroachdb", "conn_str")
-//        val cockroachdbConnectionProperties = new Properties()
-//
-//        cockroachdbConnectionProperties.put(
-//            "user",
-//            configLoader.getString("cockroachdb", "username")
-//        )
-//
-//        cockroachdbConnectionProperties.put(
-//            "password",
-//            configLoader.getString("cockroachdb", "password")
-//        )
-//
-//        cockroachdbConnectionProperties.put(
-//            "sslmode",
-//            configLoader.getString("cockroachdb", "sslmode")
-//        )
-
         return spark.read.jdbc(this.getCockroachdbUrl, table, predicates, this.getCockroachdbConnectionProperties)
     }
 
     def saveToCockroachdb(df: DataFrame, table: String, numExecutors: Int): Unit = {
-//        val cockroachdbUrl = configLoader.getString("cockroachdb", "conn_str")
-//        val cockroachdbConnectionProperties = new Properties()
-
-//        cockroachdbConnectionProperties.put(
-//            "user",
-//            configLoader.getString("cockroachdb", "username")
-//        )
-//
-//        cockroachdbConnectionProperties.put(
-//            "password",
-//            configLoader.getString("cockroachdb", "password")
-//        )
-//
-//        cockroachdbConnectionProperties.put(
-//            "sslmode",
-//            configLoader.getString("cockroachdb", "sslmode")
-//        )
-//
-//        cockroachdbConnectionProperties.put(
-//            "allowEncodingChanges",
-//            "true"
-//        )
-
         val sqlPrefix =
             "UPSERT INTO " + table +
               "(" + df.columns.mkString(",") + ")" +

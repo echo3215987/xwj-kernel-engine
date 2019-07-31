@@ -2,7 +2,7 @@ package com.foxconn.iisd.bd.rca
 
 import java.text.SimpleDateFormat
 
-import com.foxconn.iisd.bd.rca.XWJKernelEngine.configLoader
+import com.foxconn.iisd.bd.rca.XWJKernelEngine.{configLoader, ctrlCCode, ctrlDCode, ctrlDValue}
 import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
@@ -22,7 +22,7 @@ object SparkUDF{
     def parseArrayToString = udf {
         itemValue: Seq[String] => {
             itemValue.map {
-                _.replace("\004", "^D")
+                _.replace(ctrlDCode, ctrlDValue)
                 .mkString("'", "", "'")
             }
         }.mkString(",")
@@ -34,11 +34,12 @@ object SparkUDF{
             itemValue.map {
                 ele => {
                     var newString = ""
-                    var eleArray = ele.split("\003")
+                    val eleArray = ele.split(ctrlCCode)
                     eleArray.map {
-                        nEleArray => {
-                            newString = newString + nEleArray.mkString("\"", "", "\"")
-                            if (nEleArray.indexOf("\004") != -1) {
+                        newEleArray => {
+                            newString = newString + newEleArray.mkString("\"", "", "\"")
+                            //('{"id": "d78236", "name": "Arthur Read"}')
+                            if (eleArray.indexOf(newEleArray) == 0) {//nEleArray.indexOf(ctrlDCode) != -1
                                newString = newString + ":"
                             }
                         }
@@ -46,8 +47,7 @@ object SparkUDF{
                             newString = newString + null
                         }
                     }
-                    val newele = newString
-                    newele.replace("\004", "^D")
+                    newString.replace(ctrlDCode, ctrlDValue)
                 }
             }.mkString("{", ",", "}")
         }
@@ -75,8 +75,7 @@ object SparkUDF{
 
                 } catch {
                     case ex: Exception => {
-                        // ex.printStackTrace()
-                        //println("===> cast data type Exception !!!")
+//                        ex.printStackTrace()
                     }
                 }
 
