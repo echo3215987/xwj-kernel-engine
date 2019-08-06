@@ -57,17 +57,17 @@ object SparkUDF{
     def castColumnDataType = udf{
         (col: String)  => {
             var datatype = "string"
-            if (col != null) {
+            if (col != null && !col.equals("null")) {
                 try {
                     if (col.indexOf(".") > 0) {
                         //float
-                        var value = col.toFloat
+                        val value = col.toFloat
                         if (value.isInstanceOf[Float]) {
                             datatype = "float"
                         }
                     } else {
                         //int
-                        var value = col.toInt
+                        val value = col.toInt
                         if (value.isInstanceOf[Int]) {
                             datatype = "int"
                         }
@@ -88,6 +88,23 @@ object SparkUDF{
         }
     }
 
-
-
+    //parse test item spec and value
+    def parseColumnValue = udf {
+        (colValue: String) => {
+            var resultValue = colValue
+            if(resultValue != null){
+                if(resultValue.contains(ctrlDCode))
+                    resultValue = resultValue.split(ctrlDCode)(1)
+                if(resultValue.contains(ctrlCCode)){
+                    val result = resultValue.split(ctrlCCode)
+                    if(result.size == 1){
+                        resultValue = null
+                    }
+                    else
+                        resultValue = result(1)
+                }
+            }
+            resultValue
+        }
+    }
 }

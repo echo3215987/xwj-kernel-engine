@@ -1,21 +1,29 @@
 spark:
-    job_name: "local-xwj-KernelEngine"
-    master: "local"
-    conf: "spark.driver.memory=2g;
-           spark.executor.memory=2g"
+    job_name: "staging-xwj-KernelEngine"
+#    master: "local"
+#    conf: "spark.driver.memory=2g;
+#           spark.executor.memory=2g"
+    master: "k8s://192.168.1.63:6443"
+    conf: "spark.driver.memory=6g;
+           spark.executor.memory=6g;
+           spark.executor.instances=5;
+           spark.memory.offHeap.enabled=true;
+           spark.memory.offHeap.size=4g;
+           spark.eventLog.dir=/mnt/fuse_cephfs/data/spark/eventLog;
+           spark.eventLog.enabled=true"
 #spark.sql.session.timeZone=CST
 minio:
     endpoint:   "http://10.57.232.167:31359"
     accessKey:  "AKIAIOSFODNN7EXAMPLE"
     secretKey:  "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-    bucket:     "rca-dev"
+    bucket:     "rca-staging"
 
 cockroachdb:
     adapter:    "postgresql"
     host:       "10.57.232.61"
     port:       "26257"
     sslmode:    "require"
-    database:   "rca-dev"
+    database:   "rca-cartridge-nesta"
     username:   "bigdata"
     password:   "bigdata"
     conn_str:   "jdbc:{{adapter}}://{{host}}:{{port}}/{{database}}"
@@ -24,7 +32,7 @@ mariadb:
     adapter:    "mysql"
     host:       "10.57.232.61"
     port:       "3308"
-    database:   "rca-dev"
+    database:   "rca-staging-cartridge-nesta"
     username:   "edgeserver"
     password:   "Foxconn123654!@"
     conn_str:   "jdbc:{{adapter}}://{{host}}:{{port}}/{{database}}?useSSL=false&useUnicode=true&characterEncoding=UTF-8"
@@ -59,10 +67,10 @@ local_log_path:
     test_detail_compression_path: "{{data_base_path}}/TEST_DETAIL_COMPRESSION/vfpa_trans_fail_list_20190513-20190520.tar.xz"
     test_detail_compression_tmp_path: "{{data_base_path}}/TEST_DETAIL_COMPRESSION_TMP/"
     test_detail_compression_output_path: "{{data_base_path}}/TEST_DETAIL_COMPRESSION_OUTPUT/"
-    test_detail_compression_output_successful_path: "{{test_detail_compression_output_path}}/SUCCESSFUL"
-    test_detail_compression_output_failed_path: "{{test_detail_compression_output_path}}/FAILED"
+    test_detail_compression_output_successful_path: "{{test_detail_compression_output_path}}/SUCCESSFUL/"
+    test_detail_compression_output_failed_path: "{{test_detail_compression_output_path}}/FAILED/"
     #temp for validation
-    test_detail_compression_output_result_path: "{{test_detail_compression_output_path}}/RESULT"
+    test_detail_compression_output_result_path: "{{test_detail_compression_output_path}}/RESULT/"
 
     test_detail_path: "{{data_base_path}}/RCA/ask/.txt"
     test_detail_file_limits: "1"
@@ -74,8 +82,7 @@ local_log_path:
     mat_file_limits: "1"
 
 minio_log_path:
-    data_base_path: "s3a://rca-dev/IPPD-L10/Data"
-    #data_base_path: "s3a://rca-dev/Cartridge-Nesta/Data"
+    data_base_path: "s3a://rca-ftp/Cartridge-Nesta/Data"
     wip_path: "{{data_base_path}}/SFC/R_WIP_SFC/"
     wip_parts_path: "{{data_base_path}}/SFC/R_WIP_PARTS_SFC/"
     bobcat_path: "{{data_base_path}}/Bobcat/"

@@ -32,7 +32,7 @@ object XWJKernelEngine {
     val limit = 1
     var count = 0
 
-    println("xwj-bigtable-v1:")
+    println("xwj-kernel-engine-v1:")
 
     while (count < limit) {
       println(s"count: $count")
@@ -157,7 +157,7 @@ object XWJKernelEngine {
         .withColumn("list_of_failure", regexp_replace($"list_of_failure", ctrlACode, ctrlAValue))
         .withColumn("list_of_failure_detail", regexp_replace($"list_of_failure_detail", ctrlACode, ctrlAValue))
         .persist(StorageLevel.MEMORY_AND_DISK_SER_2)
-testDetailTempDf.show(false)
+//testDetailTempDf.show(false)
       val testDetailSourceDfDistCnt = testDetailSourceDf.count()
 
       def  testDetailDateStringToTimestamp (colName:String, configkey: String, configValue: String): Column  = {
@@ -193,7 +193,6 @@ testDetailTempDf.show(false)
         .withColumn("test_item_result_detail", parseStringToJSONString($"test_item_result_detail"))
         //存入upsert time
         .withColumn("upsert_time", lit(jobStartTime).cast(TimestampType))
-      testDetailCockroachDf.select("test_item").show(false)
       //將測試結果表資料儲存進Cockroachdb
       println("saveToCockroachdb --> testDetailCockroachDf")
       IoUtils.saveToCockroachdb(testDetailCockroachDf,
@@ -209,13 +208,16 @@ testDetailTempDf.show(false)
           "temp.test_lower as test_lower", "temp.test_unit as test_unit", "temp.test_value as test_value",
           "test_version", "test_starttime")
         .withColumn("test_item", regexp_replace($"test_item", ctrlDCode, ctrlDValue))
-        .withColumn("test_upper", split(split(col("test_upper"), ctrlDCode).getItem(1), ctrlCCode).getItem(1))
-        .withColumn("test_lower", split(split(col("test_lower"), ctrlDCode).getItem(1), ctrlCCode).getItem(1))
-        .withColumn("test_unit", split(split(col("test_unit"), ctrlDCode).getItem(1), ctrlCCode).getItem(1))
-        .withColumn("test_value", split(split(col("test_value"), ctrlDCode).getItem(1), ctrlCCode).getItem(1))
+        .withColumn("test_upper", parseColumnValue(col("test_upper")))
+        .withColumn("test_lower", parseColumnValue(col("test_lower")))
+        .withColumn("test_unit", parseColumnValue(col("test_unit")))
+        .withColumn("test_value", parseColumnValue(col("test_value")))
+//        .withColumn("test_upper", split(split(col("test_upper"), ctrlDCode).getItem(1), ctrlCCode).getItem(1))
+//        .withColumn("test_lower", split(split(col("test_lower"), ctrlDCode).getItem(1), ctrlCCode).getItem(1))
+//        .withColumn("test_unit", split(split(col("test_unit"), ctrlDCode).getItem(1), ctrlCCode).getItem(1))
+//        .withColumn("test_value", split(split(col("test_value"), ctrlDCode).getItem(1), ctrlCCode).getItem(1))
         .withColumn("test_item_datatype", castColumnDataType(col("test_value")))
         .drop("test_value")
-      testDetailTempDf.show(false)
 
       val productList = testDetailTempDf.select("product").dropDuplicates().as(Encoders.STRING).collect()
 
