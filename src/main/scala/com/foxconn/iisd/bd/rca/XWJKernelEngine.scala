@@ -129,12 +129,14 @@ object XWJKernelEngine {
 
     val dataSeperator = configLoader.getString("log_prop", "log_seperator")
 
+    val productItemSpecTable = configLoader.getString("dataset", "product_item_spec_table")
+
+
     ///////////
     //載入資料//
     ///////////
 
     try {
-
       //(1)測試結果表
       val testDetailDestPath = IoUtils.flatMinioFiles(spark,
         flag,
@@ -142,7 +144,6 @@ object XWJKernelEngine {
         testDetailFileLmits)
 
       val testDetailSourceDf = IoUtils.getDfFromPath(spark, testDetailDestPath.toString, testDetailColumns, dataSeperator)
-
 
       var testDetailTempDf = testDetailSourceDf.distinct()
         .withColumn("test_item", split(trim($"test_item"), ctrlACode))
@@ -157,7 +158,7 @@ object XWJKernelEngine {
         .withColumn("list_of_failure", regexp_replace($"list_of_failure", ctrlACode, ctrlAValue))
         .withColumn("list_of_failure_detail", regexp_replace($"list_of_failure_detail", ctrlACode, ctrlAValue))
         .persist(StorageLevel.MEMORY_AND_DISK_SER_2)
-//testDetailTempDf.show(false)
+testDetailTempDf.show(false)
       val testDetailSourceDfDistCnt = testDetailSourceDf.count()
 
       def  testDetailDateStringToTimestamp (colName:String, configkey: String, configValue: String): Column  = {
@@ -167,12 +168,8 @@ object XWJKernelEngine {
 
       //TODO: summary file
 //      Summary.setMasterFilesNameList(IoUtils.getFilesNameList(spark, testDetailDestPath))
-//                        testDetailSourceDf.select("test_upper").show(false)
-//                        testDetailSourceDf.select("test_lower").show(false)
-//                        testDetailSourceDf.select("test_unit").show(false)
-//                  testDetailSourceDf.printSchema()
 
-      val testDetailCockroachDf = testDetailTempDf
+      testDetailTempDf = testDetailTempDf
         .withColumn("test_starttime",
           testDetailDateStringToTimestamp("test_starttime", "log_prop", "test_detail_dt_fmt"))
         .withColumn("test_endtime",
@@ -183,6 +180,8 @@ object XWJKernelEngine {
           testDetailDateStringToTimestamp("start_date", "log_prop", "test_detail_dt_fmt"))
         .withColumn("update_time",
           testDetailDateStringToTimestamp("update_time", "log_prop", "test_detail_dt_fmt"))
+
+        val testDetailCockroachDf = testDetailTempDf
         .withColumn("test_item", parseArrayToString($"test_item"))
         .withColumn("test_item", concat(lit("ARRAY["), $"test_item", lit("]")))
         .withColumn("test_value", parseStringToJSONString($"test_value"))
@@ -225,19 +224,22 @@ object XWJKernelEngine {
 
       //insert product item spec
       val itemSpecColumnStr = "product,station_name,test_item,test_upper,test_lower,test_unit,test_version,test_starttime,test_item_datatype"
-//      var itemSpecColumn = List("product", "station_name", "test_item",
-//        "test_upper", "test_lower", "test_unit", "test_version", "test_starttime", "test_item_datatype")
       val itemSpecColumn = itemSpecColumnStr.split(",")
-      val productItemSpecDf = mariadbUtils
-        .getDfFromMariadb(spark, "product_item_spec")
-//        .select(itemSpecColumn.head, itemSpecColumn.tail:_*)
-        .selectExpr(itemSpecColumn: _*)
-        .where(col("product").isin(productList:_*))
 
+      val itemSpecCondition = "product in (" + productList.map(s => "'" + s + "'").mkString(",") + ")"
+      val itemSpecSql = "select " + itemSpecColumnStr + " from " + productItemSpecTable + " where " + itemSpecCondition
+
+      val productItemSpecDf = mariadbUtils
+          .getDfFromMariadbWithQuery(spark, itemSpecSql, numExecutors)
+//        .getDfFromMariadb(spark, "product_item_spec")
+//        .selectExpr(itemSpecColumn: _*)
+//        .where(col("product").isin(productList:_*))
+productItemSpecDf.show(false)
+
+      testDetailTempDf = testDetailTempDf.selectExpr(itemSpecColumn: _*)
       testDetailTempDf = productItemSpecDf.union(testDetailTempDf)
 
-      val wSpec = Window.partitionBy(col("product"), col("station_name"),
-        col("test_item"))
+      val wSpec = Window.partitionBy(col("product"), col("station_name"), col("test_item"))
         .orderBy(desc("test_version"), desc("test_starttime"))
 
       testDetailTempDf = testDetailTempDf
@@ -250,7 +252,7 @@ object XWJKernelEngine {
 
       mariadbUtils.saveToMariadb(
         testDetailTempDf,
-        "product_item_spec",
+        productItemSpecTable,
         numExecutors
       )
 

@@ -45,6 +45,14 @@ class MariadbUtils {
         return configLoader.getString("mariadb", "conn_str")
     }
 
+    private def getMariadbUser(): String = {
+        return configLoader.getString("mariadb", "username")
+    }
+
+    private def getMariadbPassword(): String = {
+        return configLoader.getString("mariadb", "password")
+    }
+
     private def getMariadbConnectionProperties(): Properties ={
         val _mariadbConnectionProperties = new Properties()
 
@@ -63,6 +71,17 @@ class MariadbUtils {
 
     def getDfFromMariadb(spark: SparkSession, table: String): DataFrame = {
         return spark.read.jdbc(this.getMariadbUrl(), table, this.getMariadbConnectionProperties())
+    }
+
+    def getDfFromMariadbWithQuery(spark: SparkSession, query: String, numPartitions: Int): DataFrame = {
+        return spark.read.format("jdbc")
+          .option("url", this.getMariadbUrl())
+          .option("numPartitions", numPartitions)
+          //          .option("partitionColumn", primaryKey)
+          .option("user", this.getMariadbUser())
+          .option("password", this.getMariadbPassword())
+          .option("query", query)
+          .load()
     }
 
     def execSqlToMariadb(sql: String): Unit = {
@@ -87,7 +106,6 @@ class MariadbUtils {
             configLoader.getString("mariadb", "password")
         )
 
-        //INSERT INTO ins_duplicate VALUES (1,'Antelope') ON DUPLICATE KEY UPDATE animal='Antelope';
         val sqlPrefix =
             "REPLACE INTO " + table +
               "(" + df.columns.mkString(",") + ")" +
@@ -153,10 +171,7 @@ class MariadbUtils {
             "password",
             configLoader.getString("mariadb", "password")
         )
-        //insert INTO wxj.product_station(product,station_name,flag) VALUES
-        //('TaiJi Base','TLEOL','1'), ('TaiJi Base1','TLEOL','1') ON DUPLICATE KEY UPDATE flag='1';
-        //stat1 = stat1 + VALUES(stat1), stat2 = stat2 + VALUES(stat2), stat3 = stat3 + VALUES(stat3)
-        //INSERT INTO ins_duplicate VALUES (1,'Antelope') ON DUPLICATE KEY UPDATE animal='Antelope';
+
         val sqlPrefix =
             "INSERT INTO " + table +
               "(" + df.columns.mkString(",") + ")" +
@@ -221,48 +236,4 @@ class MariadbUtils {
             }
         }
     }
-
-    //    def saveToMariadb(df: DataFrame, table: String): Unit = {
-    //
-    //        //INSERT INTO ins_duplicate VALUES (1,'Antelope') ON DUPLICATE KEY UPDATE animal='Antelope';
-    //        val sqlPrefix =
-    //            "INSERT INTO " + table +
-    //                "(" + df.columns.mkString(",") + ")" +
-    //                " VALUES "
-    //
-    //        val batchSize = 2000
-    //        val repartitionSize = (df.count()/batchSize).toInt + 1
-    //
-    //        df.rdd.repartition(repartitionSize).foreachPartition{
-    //
-    //            partition => {
-    //
-    //                val conn = this.getNewConn()
-    //                var count = 0
-    //                var sql = sqlPrefix
-    //
-    //                partition.foreach { r =>
-    //                    count += 1
-    //
-    //                    val values = r.mkString("'", "','", "'").replaceAll("'null'", "null")
-    //
-    //                    sql = sql + "(" + values + ") ,"
-    //
-    //                    if(count == batchSize){
-    //                        conn.createStatement().execute(sql.substring(0, sql.length - 1))
-    //                        count = 0
-    //                        sql = sqlPrefix
-    //
-    //                        conn.commit()
-    //                    }
-    //                }
-    //
-    //                if(count > 0) {
-    //                    conn.createStatement().execute(sql.substring(0, sql.length - 1))
-    //                }
-    //
-    //                conn.commit()
-    //            }
-    //        }
-    //    }
 }

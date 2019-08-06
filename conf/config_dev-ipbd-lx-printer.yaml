@@ -32,7 +32,7 @@ mariadb:
     database:   "rca-dev-ipbd-lx-printer"
     username:   "edgeserver"
     password:   "Foxconn123654!@"
-    conn_str:   "jdbc:{{adapter}}://{{host}}:{{port}}/{{database}}?useSSL=false&useUnicode=true&characterEncoding=UTF-8"
+    conn_str:   "jdbc:{{adapter}}://{{host}}:{{port}}/{{database}}?useSSL=false&serverTimezone=Asia/Taipei&useUnicode=true&characterEncoding=UTF-8"
 
 general:
     factory: "CQ"
@@ -173,3 +173,17 @@ taiji_base:
 
 dataset:
     sdf_format: "M/dd/yyyy,dd.M.yyyy,M/dd/yyyy hh:mm:ss a,dd.M.yyyy hh:mm:ss a,dd.MMM.yyyy,dd-MMM-yyyy"
+    product_item_spec_table: "product_item_spec"
+    bigtable_datatype_table: "data_set_bigtable_columns"
+    bigtable_datatype_col: "data_set_id,column_name,column_type,json_str"
+    station_info_col: "build_description,unit_number,station_id,test_status,test_starttime,list_of_failure,test_version"
+    item_info_col: "test_value,test_item_result,test_item_result_detail"
+    component_info_col: "vendor,hhpn,oempn,component_type,input_qty,partsn,vendor_code,date_code"
+    part_detail_col: "partsn,vendor_code,date_code,part"
+    setting_col: "id,name,product,bt_name,bt_create_time,bt_last_time,bt_next_time,effective_start_date,effective_end_date,component,item,station"
+    station_name_str: "station_name"
+    station_info_str: "station_info"
+    item_str: "item"
+    item_info_str: "item_info"
+    component_str: "component"
+    component_info_str: "component_info"
