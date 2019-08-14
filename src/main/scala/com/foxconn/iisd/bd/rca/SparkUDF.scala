@@ -107,4 +107,12 @@ object SparkUDF{
             resultValue
         }
     }
+
+    //get test detail data of first/last
+//    def getTestDetailOfFirstOrLast = udf {
+//        (selectColumn: String, product: String, station_name: String, sn: String) => {
+//            "select " + selectColumn + " from test_detail where product='" + product + "' and station_name='" + station_name + "' and sn='" +
+//                sn + "' and (value_rank='first' or value_rank='last')"
+//        }
+//    }
 }

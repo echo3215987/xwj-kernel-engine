@@ -111,6 +111,7 @@ log_prop:
     wip_col: "id,sn,wo,hh_part,cust_part,assembline,scantime,na1,na2,product,floor"
     wip_table: "part_master"
     wip_dt_fmt: "yyyy-MM-dd HH:mm:ss"
+    wip_filter_col: "id,floor,wo,scantime,sn"
 
     #CN8BJ7C2G1_||_C189220M8PFAC_||_2018-11-19 13:39:07.467_||_F1034891_||_Main B_||_LK_||_F5S43-60001_||_F5S43-60001_||_D626_||_0
     wip_parts_col: "id,partsn,scantime,opid,assembly_station,part,hh_pard,cust_part,line,disassembly"

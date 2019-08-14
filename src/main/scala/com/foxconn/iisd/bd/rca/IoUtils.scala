@@ -29,7 +29,12 @@ object IoUtils {
       return configLoader.getString("cockroachdb", "driver")
     }
 
-    private def getCockroachdbUser(): String = {
+    private def getCockroachdbSSLMode(): String = {
+      return configLoader.getString("cockroachdb", "sslmode")
+    }
+
+
+  private def getCockroachdbUser(): String = {
       return configLoader.getString("cockroachdb", "username")
     }
 
@@ -85,10 +90,10 @@ object IoUtils {
 
 
                 if (file.getLen > 0) {
-//                  println(s"[COPY] ${file.getPath} -> ${tmpFilePath.toString} : ${file.getLen}")
-//                  FileUtil.copy(fileSystem, file.getPath, fileSystem, tmpFilePath, false, true, spark.sparkContext.hadoopConfiguration)
-                  println(s"[MOVE] ${file.getPath} -> ${tmpFilePath.toString} : ${file.getLen}")
-                  fileSystem.rename(file.getPath, tmpFilePath)
+                  println(s"[COPY] ${file.getPath} -> ${tmpFilePath.toString} : ${file.getLen}")
+                  FileUtil.copy(fileSystem, file.getPath, fileSystem, tmpFilePath, false, true, spark.sparkContext.hadoopConfiguration)
+//                  println(s"[MOVE] ${file.getPath} -> ${tmpFilePath.toString} : ${file.getLen}")
+//                  fileSystem.rename(file.getPath, tmpFilePath)
 
                   count = count + 1
                   Thread.sleep(2000)
@@ -133,6 +138,33 @@ object IoUtils {
     def getDfFromCockroachdb(spark: SparkSession, table: String, predicates: Array[String]): DataFrame = {
         return spark.read.jdbc(this.getCockroachdbUrl, table, predicates, this.getCockroachdbConnectionProperties)
     }
+
+    def getDfFromCockroachdb(spark: SparkSession, query: String, numPartitions: Int): DataFrame = {
+        return spark.read.format("jdbc")
+            .option("url", this.getCockroachdbUrl())
+            .option("numPartitions", numPartitions)
+            //          .option("partitionColumn", primaryKey)
+            .option("sslmode", this.getCockroachdbSSLMode())
+            .option("user", this.getCockroachdbUser())
+            .option("password", this.getCockroachdbPassword())
+            .option("query", query)
+            .load()
+    }
+
+  def getDfFromCockroachdb(spark: SparkSession, query: String, numPartitions: Int,
+                           primaryKey: String, lowerBound: String, upperBound: String): DataFrame = {
+    return spark.read.format("jdbc")
+      .option("url", this.getCockroachdbUrl())
+      .option("numPartitions", numPartitions)
+      .option("partitionColumn", primaryKey)
+      .option("lowerBound", lowerBound)
+      .option("upperBound", upperBound)
+      .option("sslmode", this.getCockroachdbSSLMode())
+      .option("user", this.getCockroachdbUser())
+      .option("password", this.getCockroachdbPassword())
+      .option("dbtable", query)
+      .load()
+  }
 
     def saveToCockroachdb(df: DataFrame, table: String, numExecutors: Int): Unit = {
         val sqlPrefix =
