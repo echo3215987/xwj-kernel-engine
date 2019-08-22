@@ -382,6 +382,11 @@ matSourceDf.show(3, false)
       println("saveToMariadb --> matSourceDf")
       mariadbUtils.saveToMariadb(matSourceDf.drop("upsert_time"), matTable, numExecutors)
 
+//      val datasetDf = mariadbUtils.getDfFromMariadbWithQuery(spark, "SELECT floor, product, line, update_time FROM product_floor_line ", numExecutors)
+//      datasetDf.show(false)
+//
+//      val tempDf = IoUtils.getDfFromCockroachdb(spark, "SELECT id, sn FROM part_master limit 10 ", numExecutors)
+//      tempDf.show(false)
 
     } catch {
       case ex: FileNotFoundException => {

@@ -19,7 +19,6 @@ minio:
 
 cockroachdb:
     adapter:    "postgresql"
-    host:       "10.57.232.61"
     host1:      "10.134.224.192"
     host2:      "10.134.224.193"
     host3:      "10.134.224.194"
