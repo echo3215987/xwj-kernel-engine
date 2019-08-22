@@ -382,6 +382,7 @@ matSourceDf.show(3, false)
       println("saveToMariadb --> matSourceDf")
       mariadbUtils.saveToMariadb(matSourceDf.drop("upsert_time"), matTable, numExecutors)
 
+
     } catch {
       case ex: FileNotFoundException => {
         // ex.printStackTrace()

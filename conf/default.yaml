@@ -1,6 +1,7 @@
 # dev-local , dev-k8s , dtsa-lx-k8s , ipcd-lx-k8s , ipbd-lx-monitor-k8s , ipbd-lx-printer-k8s , staging-cartridge-nesta, dev-ipbd-lx-printer
-mode: "staging-cartridge-nesta"
+mode: "fii-cartridge-nesta"
 dev-local_config_path: "conf/config_dev-local.yaml"
 dev-ipbd-lx-printer_config_path: "conf/config_dev-ipbd-lx-printer.yaml"
 staging-ipbd-lx-printer_config_path: "conf/config_staging-ipbd-lx-printer.yaml"
 staging-cartridge-nesta_config_path: "conf/config_staging-cartridge-nesta.yaml"
+fii-cartridge-nesta_config_path: "conf/config_fii-cartridge-nesta.yaml"
