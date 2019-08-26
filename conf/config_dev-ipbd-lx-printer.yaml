@@ -27,12 +27,14 @@ cockroachdb:
 
 mariadb:
     adapter:    "mysql"
+    loadbalance: "loadbalance"
     host:       "10.57.232.61"
     port:       "3308"
     database:   "rca-dev-ipbd-lx-printer"
     username:   "edgeserver"
     password:   "Foxconn123654!@"
-    conn_str:   "jdbc:{{adapter}}://{{host}}:{{port}}/{{database}}?useSSL=false&serverTimezone=Asia/Taipei&useUnicode=true&characterEncoding=UTF-8"
+    #    conn_str:   "jdbc:{{adapter}}://{{host}}:{{port}}/{{database}}?useSSL=false&serverTimezone=Asia/Taipei&useUnicode=true&characterEncoding=UTF-8"
+    conn_str:    "jdbc:{{adapter}}:{{loadbalance}}://{{host}}:{{port}}/{{database}}?useSSL=false&serverTimezone=Asia/Taipei&useUnicode=true&characterEncoding=UTF-8"
 
 general:
     factory: "CQ"
@@ -121,6 +123,7 @@ log_prop:
     wip_parts_col: "id,partsn,scantime,opid,assembly_station,part,hh_pard,cust_part,line,disassembly"
     wip_parts_table: "part_detail"
     wip_parts_dt_fmt: "yyyy-MM-dd HH:mm:ss"
+    wip_parts_line_col: "id,scantime,line"
 
     #CN8BS7C334_||_TLEOL_||_TLEOL_||_LC_TLEOL_41_||_11/29/2018 8:33:10 AM_||_11/29/2018 8:38:46 AM_||_0_||__||__||_11/29/2018 8:38:46 AM
     bobcat_col: "sn,station,stationcode,machine,start_time,end_time,istestfail,symptom,desc_,uploadtime,c1,c2,c3"

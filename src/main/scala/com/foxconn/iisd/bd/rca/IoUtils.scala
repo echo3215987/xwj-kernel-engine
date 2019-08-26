@@ -90,10 +90,10 @@ object IoUtils {
 
 
                 if (file.getLen > 0) {
-//                  println(s"[COPY] ${file.getPath} -> ${tmpFilePath.toString} : ${file.getLen}")
-//                  FileUtil.copy(fileSystem, file.getPath, fileSystem, tmpFilePath, false, true, spark.sparkContext.hadoopConfiguration)
-                  println(s"[MOVE] ${file.getPath} -> ${tmpFilePath.toString} : ${file.getLen}")
-                  fileSystem.rename(file.getPath, tmpFilePath)
+                  println(s"[COPY] ${file.getPath} -> ${tmpFilePath.toString} : ${file.getLen}")
+                  FileUtil.copy(fileSystem, file.getPath, fileSystem, tmpFilePath, false, true, spark.sparkContext.hadoopConfiguration)
+//                  println(s"[MOVE] ${file.getPath} -> ${tmpFilePath.toString} : ${file.getLen}")
+//                  fileSystem.rename(file.getPath, tmpFilePath)
 
                   count = count + 1
                   Thread.sleep(2000)

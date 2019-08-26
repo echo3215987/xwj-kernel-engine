@@ -130,6 +130,11 @@ object XWJKernelEngine {
 
     val masterTable = configLoader.getString("log_prop", "wip_table")
 
+    val detailLineColumn = configLoader.getString("log_prop", "wip_parts_line_col")
+
+    val detailTable = configLoader.getString("log_prop", "wip_parts_table")
+
+
     ///////////
     //載入資料//
     ///////////
@@ -210,26 +215,6 @@ println("testDetailCockroachDf count:" + testDetailCockroachDf.count())
         val productCondition = "product in (" + productList.map(s => "'" + s + "'").mkString(",") + ")"
 
 
-        //delete
-        //      val testDetailFirstOrLastDF = testDetailCockroachDf.selectExpr(testDetailWhereColumn: _*).dropDuplicates()
-        //        //gen where sql
-        //        .withColumn("sql", getTestDetailOfFirstOrLast(lit(testDetailSelectColumnStr), col("product"), col("station_name"), col("sn")))
-        //        .select("sql").show(false)
-        //
-        //      testDetailFirstOrLastDF
-        /*
-        select product,station_name,sn,value_rank,test_starttime from test_detail where product='F6U16-30001' and station_name='INK_FILL' and sn='2899611000271735' " +
-                  "and (value_rank=0 or value_rank=1
-         */
-//        //工站先不過濾
-//        val testDetailFirstOrLastDF = IoUtils.getDfFromCockroachdb(spark,
-//          "(select * from test_detail where " + productCondition + " and " + snCondition +
-//            "and (value_rank=0 or value_rank=1)) temp", numExecutors, "value_rank", "0", "1")
-//
-//        testDetailCockroachDf = testDetailCockroachDf.join(testDetailFirstOrLastDF, Seq("product","station_name","sn","test_version","test_starttime"), "left")
-//
-
-
         println("-----------------> select part table (first scantime) where sn, product start_time:" + new SimpleDateFormat(
           configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
 
@@ -240,10 +225,36 @@ println("testDetailCockroachDf count:" + testDetailCockroachDf.count())
         val partMasterDf = IoUtils.getDfFromCockroachdb(spark, masterSql, numExecutors)
             .withColumnRenamed("floor", "scan_floor")
 //        partMasterDf.show(false)
-        testDetailCockroachDf = testDetailCockroachDf.join(partMasterDf, Seq("sn"), "left")
 
         println("-----------------> select part table (first scantime) where sn, product end_time:" + new SimpleDateFormat(
           configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
+
+
+        println("-----------------> select part detail table where id start_time:" + new SimpleDateFormat(
+          configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
+
+        //找出所有組裝主表id在組裝細表第一筆scantime的line線別
+        val partMasterIdList = partMasterDf.select("id").dropDuplicates().map(_.getString(0)).collect.toList
+
+        val idCondition = "id in (" + partMasterIdList.map(s => "'" + s + "'").mkString(",") + ")"
+
+        val detailSql = "select " +  detailLineColumn + " from " + detailTable +
+          " where " + idCondition
+
+        //group by id, order by scantime asc, 取第一筆
+        val wSpecPartDetailAsc = Window.partitionBy(col("id"))
+          .orderBy(asc("scantime"))
+
+        val partDetailDf = IoUtils.getDfFromCockroachdb(spark, detailSql, numExecutors)
+          .withColumn("rank", rank().over(wSpecPartDetailAsc))
+          .where($"rank".equalTo(1))
+          .drop("rank", "scantime")
+
+        println("-----------------> select part detail table where id end_time:" + new SimpleDateFormat(
+          configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
+
+        testDetailCockroachDf = testDetailCockroachDf.join(partMasterDf, Seq("sn"), "left")
+            .join(partDetailDf, Seq("id"), "left")
 
         println("-----------------> save test_detail start_time:" + new SimpleDateFormat(
           configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
