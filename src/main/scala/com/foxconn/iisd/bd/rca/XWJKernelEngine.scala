@@ -11,7 +11,7 @@ import org.apache.log4j.{Level, Logger}
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.TimestampType
-import org.apache.spark.sql.{Column, Encoders, SparkSession}
+import org.apache.spark.sql.{Column, DataFrame, Encoders, SparkSession}
 import org.apache.spark.storage.StorageLevel
 import com.foxconn.iisd.bd.rca.SparkUDF._
 import org.apache.hadoop.fs.{FileSystem, Path}
@@ -211,11 +211,6 @@ object XWJKernelEngine {
 
       //(1)測試結果表
       //1-1: 將測試結果表資料儲存進Cockroachdb
-//      val testDetailDestPath = IoUtils.flatMinioFiles(spark,
-//        flag,
-//        testDetailPath,
-//        testDetailFileLmits)
-
       val testDetailDestPath = IoUtils.flatMinioFiles(spark,
         testDetailPath,
         (mbLimits * 1024 * 1024),
@@ -344,7 +339,6 @@ println("testDetailCockroachDf count:" + testDetailCockroachDf.count())
         println("-----------------> save test_detail end_time:" + new SimpleDateFormat(
           configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
 
-
         testDetailTempDf = testDetailTempDf
           .withColumn("temp", arrays_zip($"test_item", $"test_upper", $"test_lower", $"test_unit", $"test_value"))
           .withColumn("temp", explode($"temp"))
@@ -367,9 +361,6 @@ println("testDetailCockroachDf count:" + testDetailCockroachDf.count())
         println(itemSpecSql)
         val productItemSpecDf = mariadbUtils
           .getDfFromMariadbWithQuery(spark, itemSpecSql, numExecutors)
-        //                .getDfFromMariadb(spark, "product_item_spec")
-        //                .selectExpr(itemSpecColumn: _*)
-        //                .where(col("product").isin(productList:_*))
 
         testDetailTempDf = testDetailTempDf.selectExpr(itemSpecColumn: _*)
         testDetailTempDf = productItemSpecDf.union(testDetailTempDf)
@@ -397,9 +388,6 @@ println("testDetailCockroachDf count:" + testDetailCockroachDf.count())
         //紀錄Product、工站名稱 list
         var productStationDf = mariadbUtils
           .getDfFromMariadbWithQuery(spark, productStationSql, numExecutors)
-        //          .getDfFromMariadb(spark, "product_station")
-        //          .select("product", "station_name", "flag", "station_name_user")
-        //          .where(col("product").isin(productList:_*))
 
         productStationDf = productStationDf.union(
           testDetailSourceDf.select("product", "station_name")
@@ -418,11 +406,6 @@ println("testDetailCockroachDf count:" + testDetailCockroachDf.count())
       }
 
       //(2)工單
-//      val woDestPath = IoUtils.flatMinioFiles(spark,
-//        flag,
-//        woPath,
-//        woFileLmits)
-
       val woDestPath = IoUtils.flatMinioFiles(spark,
         woPath,
         totalRawDataSize,
@@ -447,11 +430,6 @@ woSourceDf.show(3, false)
         numExecutors)
 
       //(3)關鍵物料
-//      val matDestPath = IoUtils.flatMinioFiles(spark,
-//        flag,
-//        matPath,
-//        matFileLmits)
-
       val matDestPath = IoUtils.flatMinioFiles(spark,
         matPath,
         totalRawDataSize,
@@ -467,6 +445,7 @@ matSourceDf.show(3, false)
       //3.1 將關鍵物料資料儲存進Cockroachdb
       println("saveToCockroachdb --> matSourceDf")
       IoUtils.saveToCockroachdb(matSourceDf, matTable, numExecutors)
+
       //3.2 將關鍵物料資料儲存進mariadb
       println("saveToMariadb --> matSourceDf")
       mariadbUtils.saveToMariadb(matSourceDf.drop("upsert_time"), matTable, numExecutors)

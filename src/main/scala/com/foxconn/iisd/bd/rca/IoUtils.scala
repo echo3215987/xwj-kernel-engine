@@ -11,7 +11,7 @@ import java.util.Date
 import com.foxconn.iisd.bd.rca.XWJKernelEngine.configLoader
 import org.apache.hadoop.fs._
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
-import org.apache.spark.sql.{DataFrame, Row, SparkSession}
+import org.apache.spark.sql.{DataFrame, Row, SaveMode, SparkSession}
 
 import scala.io.Source
 
@@ -496,5 +496,4 @@ object IoUtils {
       }
       bytes.toString()
     }
-
 }
