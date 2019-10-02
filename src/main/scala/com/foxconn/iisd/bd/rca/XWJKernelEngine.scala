@@ -1,6 +1,7 @@
 package com.foxconn.iisd.bd.rca
 
 import java.io.FileNotFoundException
+import java.net.InetAddress
 import java.text.SimpleDateFormat
 import java.time.format.DateTimeFormatter
 import java.util.{Date, Locale}
@@ -13,11 +14,28 @@ import org.apache.spark.sql.types.TimestampType
 import org.apache.spark.sql.{Column, Encoders, SparkSession}
 import org.apache.spark.storage.StorageLevel
 import com.foxconn.iisd.bd.rca.SparkUDF._
+import org.apache.hadoop.fs.{FileSystem, Path}
 
 object XWJKernelEngine {
 
   var configLoader = new ConfigLoader()
   val datetimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.TAIWAN)
+
+  var totalRawDataSize: Long = 0
+  val mb = 1024*1024
+  val runtime = Runtime.getRuntime
+  var jobId = ""
+  var jobYear = ""
+  var jobMonth = ""
+  var jobDay = ""
+  var jobHour = ""
+  var jobMinute = ""
+  var jobSecond = ""
+  var jobStatus = false
+  var testDetailPath = ""
+  var woPath = ""
+  var matPath = ""
+
   val ctrlACode = "\001"
   val ctrlAValue = "^A"
 
@@ -32,21 +50,65 @@ object XWJKernelEngine {
     val limit = 1
     var count = 0
 
-    println("xwj-kernel-engine-v2:")
+    println("xwj-kernel-engine-v3")
 
-    while (count < limit) {
+    while(count < limit) {
+
       println(s"count: $count")
+      configLoader.setDefaultConfigPath("""conf/default.yaml""")
+      if(args.length == 1) {
+        configLoader.setDefaultConfigPath(args(0))
+      }
+
+      jobId = getHostName()
+      println("job id : " + jobId)
+
+      val sparkBuilder = SparkSession
+        .builder
+        .appName(configLoader.getString("spark", "job_name"))
+        .master(configLoader.getString("spark", "master"))
+
+      val confStr = configLoader.getString("spark", "conf")
+
+      val confAry = confStr.split(";").map(_.trim)
+      for(i <- 0 until confAry.length) {
+        val configKeyValue = confAry(i).split("=").map(_.trim)
+        println("conf ===> " + configKeyValue(0) + " : " + configKeyValue(1))
+        sparkBuilder.config(configKeyValue(0), configKeyValue(1))
+      }
+
+      val spark = sparkBuilder.getOrCreate()
+
+      val configMap = spark.conf.getAll
+      for ((k,v) <- configMap) {
+        println("[" + k + " = " + v + "]")
+      }
 
       try {
-        configLoader.setDefaultConfigPath("""conf/default.yaml""")
-        if (args.length == 1) {
-          configLoader.setDefaultConfigPath(args(0))
-        }
-        XWJKernelEngine.start()
+//        jobId = "rca-ke-dev-uuid-20190830100000-driver"
+        jobYear = jobId.split("-uuid-")(1).split("-")(0).slice(0, 4)
+        jobMonth = jobId.split("-uuid-")(1).split("-")(0).slice(4, 6)
+        jobDay = jobId.split("-uuid-")(1).split("-")(0).slice(6, 8)
+        jobHour = jobId.split("-uuid-")(1).split("-")(0).slice(8, 10)
+        jobMinute = jobId.split("-uuid-")(1).split("-")(0).slice(10, 12)
+        jobSecond = jobId.split("-uuid-")(1).split("-")(0).slice(12, 14)
+//        Summary.setJobId(jobId) TODO
+        XWJKernelEngine.start(spark)
       } catch {
         case ex: Exception => {
           ex.printStackTrace()
         }
+      } finally {
+        IoUtils.moveFilesByJobStatus(
+          spark,
+          testDetailPath,
+          woPath,
+          matPath,
+          jobStatus,
+          jobId,
+          jobYear + jobMonth,
+          jobDay,
+          jobHour + jobMinute + jobSecond)
       }
 
       count = count + 1
@@ -56,7 +118,12 @@ object XWJKernelEngine {
 
   }
 
-  def start(): Unit = {
+  def start(spark: SparkSession): Unit = {
+
+    println("** Used Memory:  " + (runtime.totalMemory - runtime.freeMemory) / mb + " MB")
+    println("** Free Memory:  " + runtime.freeMemory / mb + " MB")
+    println("** Total Memory: " + runtime.totalMemory / mb + " MB")
+    println("** Max Memory:   " + runtime.maxMemory / mb + " MB")
 
     var date: java.util.Date = new java.util.Date()
     val flag = date.getTime().toString
@@ -66,31 +133,10 @@ object XWJKernelEngine {
     println("job start time : " + jobStartTime)
 //    Summary.setJobStartTime(jobStartTime)
 
-    println(s"flag: $flag" + ": xwj")
+    println(s"flag: $flag")
 
     Logger.getLogger("org").setLevel(Level.OFF)
     Logger.getLogger("akka").setLevel(Level.OFF)
-
-    val sparkBuilder = SparkSession
-      .builder
-      .appName(configLoader.getString("spark", "job_name"))
-      .master(configLoader.getString("spark", "master"))
-
-    val confStr = configLoader.getString("spark", "conf")
-
-    val confAry = confStr.split(";").map(_.trim)
-    for (i <- 0 until confAry.length) {
-      val configKeyValue = confAry(i).split("=").map(_.trim)
-      println("conf ===> " + configKeyValue(0) + " : " + configKeyValue(1))
-      sparkBuilder.config(configKeyValue(0), configKeyValue(1))
-    }
-
-    val spark = sparkBuilder.getOrCreate()
-
-    val configMap = spark.conf.getAll
-    for ((k, v) <- configMap) {
-      println("[" + k + " = " + v + "]")
-    }
 
     configLoader.setConfig2SparkAddFile(spark)
 
@@ -112,9 +158,10 @@ object XWJKernelEngine {
       spark.sparkContext.hadoopConfiguration.set("fs.s3a.secret.key", secretKey)
     }
     import spark.implicits._
+
     val numExecutors = spark.conf.get("spark.executor.instances", "1").toInt
 
-    val testDetailPath = configLoader.getString(logPathSection, "test_detail_path")
+    testDetailPath = configLoader.getString(logPathSection, "test_detail_path")
 
     val testDetailFileLmits = configLoader.getString(logPathSection, "test_detail_file_limits").toInt
 
@@ -134,6 +181,23 @@ object XWJKernelEngine {
 
     val detailTable = configLoader.getString("log_prop", "wip_parts_table")
 
+    woPath = configLoader.getString(logPathSection, "wo_path")
+
+    val woFileLmits = configLoader.getString(logPathSection, "wo_file_limits").toInt
+
+    val woColumns = configLoader.getString("log_prop", "wo_col")
+
+    val woDtfmt = configLoader.getString("log_prop", "wo_dt_fmt")
+
+    matPath = configLoader.getString(logPathSection, "mat_path")
+
+    val matFileLmits = configLoader.getString(logPathSection, "mat_file_limits").toInt
+
+    val matColumns = configLoader.getString("log_prop", "mat_col")
+
+    val matTable = configLoader.getString("log_prop", "mat_table")
+
+    val mbLimits = configLoader.getString("log_prop", "mb_limits").toInt
 
     ///////////
     //載入資料//
@@ -141,16 +205,29 @@ object XWJKernelEngine {
 
     try {
 
+      println(s"MB Limits : $mbLimits")
+
       val mariadbUtils = new MariadbUtils()
 
       //(1)測試結果表
       //1-1: 將測試結果表資料儲存進Cockroachdb
+//      val testDetailDestPath = IoUtils.flatMinioFiles(spark,
+//        flag,
+//        testDetailPath,
+//        testDetailFileLmits)
+
       val testDetailDestPath = IoUtils.flatMinioFiles(spark,
-        flag,
         testDetailPath,
-        testDetailFileLmits)
+        (mbLimits * 1024 * 1024),
+        jobYear + jobMonth,
+        jobDay,
+        jobHour + jobMinute + jobSecond)
+
+//      val testDetailDestPath = new Path("s3a://rca-ftp/Cartridge-Nesta/Data/TEST_DETAIL/2019/08/28/10/00/00/*")
 
       val testDetailSourceDf = IoUtils.getDfFromPath(spark, testDetailDestPath.toString, testDetailColumns, dataSeperator)
+
+println("testDetailSourceDf from file, Used Memory:  " + (runtime.totalMemory - runtime.freeMemory) / mb + " MB")
 
       var testDetailTempDf = testDetailSourceDf.distinct()
         .withColumn("test_item", split(trim($"test_item"), ctrlACode))
@@ -341,19 +418,17 @@ println("testDetailCockroachDf count:" + testDetailCockroachDf.count())
       }
 
       //(2)工單
-      val woPath = configLoader.getString(logPathSection, "wo_path")
-
-      val woFileLmits = configLoader.getString(logPathSection, "wo_file_limits").toInt
-
-      val woColumns = configLoader.getString("log_prop", "wo_col")
-
-      val woDtfmt = configLoader.getString("log_prop", "wo_dt_fmt")
-
+//      val woDestPath = IoUtils.flatMinioFiles(spark,
+//        flag,
+//        woPath,
+//        woFileLmits)
 
       val woDestPath = IoUtils.flatMinioFiles(spark,
-        flag,
         woPath,
-        woFileLmits)
+        totalRawDataSize,
+        jobYear + jobMonth,
+        jobDay,
+        jobHour + jobMinute + jobSecond)
 
       var woSourceDf = IoUtils.getDfFromPath(spark, woDestPath.toString, woColumns, dataSeperator)
       woSourceDf = woSourceDf.drop("prodversion","create_date")
@@ -361,6 +436,7 @@ println("testDetailCockroachDf count:" + testDetailCockroachDf.count())
           .cast(TimestampType))
 //      woSourceDf = woSourceDf.drop("release_date","prodversion","create_date")
         .withColumn("upsert_time", lit(jobStartTime).cast(TimestampType))
+println("woSourceDf from file, Used Memory:  " + (runtime.totalMemory - runtime.freeMemory) / mb + " MB")
 
 woSourceDf.show(3, false)
 
@@ -371,19 +447,21 @@ woSourceDf.show(3, false)
         numExecutors)
 
       //(3)關鍵物料
-      val matPath = configLoader.getString(logPathSection, "mat_path")
+//      val matDestPath = IoUtils.flatMinioFiles(spark,
+//        flag,
+//        matPath,
+//        matFileLmits)
 
-      val matFileLmits = configLoader.getString(logPathSection, "mat_file_limits").toInt
-
-      val matColumns = configLoader.getString("log_prop", "mat_col")
-
-      val matTable = configLoader.getString("log_prop", "mat_table")
       val matDestPath = IoUtils.flatMinioFiles(spark,
-        flag,
         matPath,
-        matFileLmits)
+        totalRawDataSize,
+        jobYear + jobMonth,
+        jobDay,
+        jobHour + jobMinute + jobSecond)
 
       var matSourceDf = IoUtils.getDfFromPath(spark, matDestPath.toString, matColumns, dataSeperator)
+println("matSourceDf from file, Used Memory:  " + (runtime.totalMemory - runtime.freeMemory) / mb + " MB")
+
       matSourceDf = matSourceDf.withColumn("upsert_time", lit(jobStartTime).cast(TimestampType))
 matSourceDf.show(3, false)
       //3.1 將關鍵物料資料儲存進Cockroachdb
@@ -393,11 +471,10 @@ matSourceDf.show(3, false)
       println("saveToMariadb --> matSourceDf")
       mariadbUtils.saveToMariadb(matSourceDf.drop("upsert_time"), matTable, numExecutors)
 
-//      val datasetDf = mariadbUtils.getDfFromMariadbWithQuery(spark, "SELECT floor, product, line, update_time FROM product_floor_line ", numExecutors)
-//      datasetDf.show(false)
-//
-//      val tempDf = IoUtils.getDfFromCockroachdb(spark, "SELECT id, sn FROM part_master limit 10 ", numExecutors)
-//      tempDf.show(false)
+      val jobEndTime: String = new SimpleDateFormat(
+        configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime())
+      println("job end time : " + jobEndTime)
+      jobStatus = true
 
     } catch {
       case ex: FileNotFoundException => {
@@ -405,6 +482,20 @@ matSourceDf.show(3, false)
         println("===> FileNotFoundException !!!")
       }
     }
+  }
+
+  def getHostName(): String = {
+    var hostName = ""
+    try {
+      val ip = InetAddress.getLocalHost()
+      hostName = ip.getHostName
+    } catch {
+      case ex: Exception => {
+        println("===> Get Pod Hostname Exception !!!")
+        ex.printStackTrace()
+      }
+    }
+    hostName
   }
 
 }
