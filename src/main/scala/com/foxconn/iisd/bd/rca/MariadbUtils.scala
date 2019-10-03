@@ -90,6 +90,8 @@ class MariadbUtils {
         conn.createStatement().execute(sql)
 
         conn.commit()
+
+        conn.close()
     }
 
     def saveToMariadb(df: DataFrame, table: String, numExecutors: Int): Unit = {
@@ -154,8 +156,11 @@ class MariadbUtils {
                 }
 
                 conn.commit()
+
+                conn.close()
             }
         }
+
     }
 
 }
