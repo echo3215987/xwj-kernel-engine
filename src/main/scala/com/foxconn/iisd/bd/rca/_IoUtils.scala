@@ -107,7 +107,7 @@ object IoUtils {
             Thread.sleep(2000)
           }
         }
-        XWJKernelEngine.totalRawDataSize = totalSize
+//        XWJKernelEngine.totalRawDataSize = totalSize
         println("files total size : " + IoUtils.getNetFileSizeDescription(totalSize))
 
       } catch {
@@ -117,47 +117,6 @@ object IoUtils {
       }
       return destPath
     }
-
-//    def flatMinioFiles(spark: SparkSession, flag:String, srcPathStr: String, fileLimits: Integer): Path = {
-//        var count = 0
-//
-//        val fileSystem = FileSystem.get(URI.create(srcPathStr), spark.sparkContext.hadoopConfiguration)
-//
-//        val srcPath = new Path(srcPathStr)
-//        val destPath = new Path(new Path(srcPath.getParent, s"${srcPath.getName}_TMP"), flag)
-//
-//        if(!fileSystem.exists(destPath)){
-//            fileSystem.mkdirs(destPath)
-//        }
-//
-//        try {
-//            val wipPathFiles = fileSystem.listFiles(srcPath, true)
-//            while (count < fileLimits && wipPathFiles.hasNext()) {
-//                val file = wipPathFiles.next()
-//
-//                val filename = file.getPath.getName
-//                val tmpFilePath = new Path(destPath, filename)
-//
-//
-//                if (file.getLen > 0) {
-////                  println(s"[COPY] ${file.getPath} -> ${tmpFilePath.toString} : ${file.getLen}")
-////                  FileUtil.copy(fileSystem, file.getPath, fileSystem, tmpFilePath, false, true, spark.sparkContext.hadoopConfiguration)
-//                  println(s"[MOVE] ${file.getPath} -> ${tmpFilePath.toString} : ${file.getLen}")
-//                  fileSystem.rename(file.getPath, tmpFilePath)
-//
-//                  count = count + 1
-//                  Thread.sleep(2000)
-//
-//                }
-//            }
-//        } catch {
-//            case ex: FileNotFoundException => {
-//                //                ex.printStackTrace()
-//                println("===> FileNotFoundException !!!")
-//            }
-//        }
-//        return destPath
-//    }
 
     def getDfFromPath(spark: SparkSession, path: String, columns: String, dataSeperator: String): DataFrame = {
 
@@ -222,7 +181,7 @@ object IoUtils {
               "(" + df.columns.mkString(",") + ")" +
               " VALUES "
 
-        val batchSize = 3000
+        val batchSize = 1000
         val batchLength = 600000
         val repartitionSize = numExecutors
 
