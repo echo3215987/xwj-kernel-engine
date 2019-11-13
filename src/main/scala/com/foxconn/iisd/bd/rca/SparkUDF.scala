@@ -2,7 +2,8 @@ package com.foxconn.iisd.bd.rca
 
 import java.text.SimpleDateFormat
 
-import com.foxconn.iisd.bd.rca.XWJKernelEngine.{configLoader, ctrlCCode, ctrlDCode, ctrlDValue}
+import com.foxconn.iisd.bd.rca.XWJKernelEngine.{configLoader}
+import com.foxconn.iisd.bd.rca.XWJKEConstants.{ctrlCCode, ctrlDCode, ctrlDValue}
 import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
@@ -80,7 +81,7 @@ object SparkUDF{
                 }
 
                 if(datatype.equals("string")){//timestamp
-                    if(IoUtils.convertToDate(col))
+                    if(_IoUtils.convertToDate(col))
                         datatype = "timestamp"
                 }
             }

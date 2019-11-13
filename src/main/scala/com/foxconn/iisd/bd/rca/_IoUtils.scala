@@ -15,7 +15,7 @@ import org.apache.spark.sql.{DataFrame, Row, SaveMode, SparkSession}
 
 import scala.io.Source
 
-object IoUtils {
+object _IoUtils {
 
     private def getDatasetSdfFormat(): String = {
       return configLoader.getString("dataset", "sdf_format")
@@ -98,17 +98,17 @@ object IoUtils {
           if (file.getLen > 0) {
             println("number : " + count +
               " , [MOVE] " + file.getPath + " -> " + tmpFilePath.toString +
-              " , file size : " + IoUtils.getNetFileSizeDescription(file.getLen))
+              " , file size : " + _IoUtils.getNetFileSizeDescription(file.getLen))
 //            FileUtil.copy(fileSystem, file.getPath, fileSystem, tmpFilePath, false, true, spark.sparkContext.hadoopConfiguration)
             fileSystem.rename(file.getPath, tmpFilePath)
             count = count + 1
             totalSize = totalSize + file.getLen
-            println("totalSize add getLen : " + IoUtils.getNetFileSizeDescription(totalSize))
+            println("totalSize add getLen : " + _IoUtils.getNetFileSizeDescription(totalSize))
             Thread.sleep(2000)
           }
         }
 //        XWJKernelEngine.totalRawDataSize = totalSize
-        println("files total size : " + IoUtils.getNetFileSizeDescription(totalSize))
+        println("files total size : " + _IoUtils.getNetFileSizeDescription(totalSize))
 
       } catch {
         case ex: FileNotFoundException => {

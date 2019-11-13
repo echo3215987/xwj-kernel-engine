@@ -1,7 +1,6 @@
 package com.foxconn.iisd.bd.rca
 
-import java.util.Date
-
+import com.foxconn.iisd.bd.rca.XWJKernelEngine.{configContext, configLoader}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 /*
@@ -24,18 +23,19 @@ class ConfigContext extends Serializable {
   // data processing
   var dataProcessingMode = ""
   //file
-  var wipPath = ""
-  var wipPartsPath = ""
-  var bobcatPath = ""
-  var wipColumns = ""
-  var wipPartsColumns = ""
-  var bobcatColumns = ""
-  var wipDtFmt = ""
-  var wipPartsDtFmt = ""
-  var bobcatDtFmt = ""
+  var testDetailPath = ""
+  var woPath = ""
+  var matPath = ""
+  var testDetailColumns = ""
+  var woColumns = ""
+  var matColumns = ""
+  var testDetailDtFmt = ""
+  var woDtFmt = ""
+  var matDtFmt = ""
   var dataSeperator = ""
   var mbLimits = 0
   var residualCapacityDataSize: Long = 0
+
   //spark
   var sparkJobName = ""
   var sparkMaster = ""
@@ -57,17 +57,21 @@ class ConfigContext extends Serializable {
   var cockroachDbMasterTable = ""
   var cockroachDbDetailTable = ""
   var cockroachDbTestTable = ""
+  var cockroachDbTestDetailTable = ""
+  var cockroachDbWoTable = ""
+  var cockroachDbMatTable = ""
+  var cockroachDbMasterColumns = ""
+  var cockroachDbDetailColumns = ""
+
   //mysqldb
   var mysqlDbConnUrlStr = ""
   var mysqlDatabase = ""
   var mysqlDbUserName = ""
   var mysqlDbPassword = ""
-  var mysqlProductBwListTable = ""
-  var mysqlProductInfoTable = ""
-  var mysqlProductFloorLineTable = ""
-  var mysqlRiskAssemblyStationSnTable = ""
-  var mysqlRiskPartSnTable = ""
-  var mysqlRiskTestStationSnTable = ""
+  var mysqlProductItemSpecTable = ""
+  var mysqlProductStationTable = ""
+  var mysqlProductMatTable = ""
+  var mysqlProductBigtableDatatypeTable = ""
   //micro batch time group
   var microBatchTimeGroupDurationMin = 10
   //datafrmae
@@ -82,6 +86,7 @@ class ConfigContext extends Serializable {
   var summaryFileLogTag = ""
   var summaryFileExtension = ""
   var summaryFileJobFmt = ""
+  var summaryFileBuName = ""
   //daily
   var dailyCalculationStartHour = 0
   var dailyCalculationDurationHour = 0

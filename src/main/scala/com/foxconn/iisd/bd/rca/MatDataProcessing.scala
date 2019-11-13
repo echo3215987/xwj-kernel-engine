@@ -1,44 +1,50 @@
 package com.foxconn.iisd.bd.rca
 
-import com.foxconn.iisd.bd.rca.SparkUDF.{castColumnDataType, parseArrayToString, parseColumnValue, parseStringToJSONString}
-import com.foxconn.iisd.bd.rca.XWJKernelEngine.{configContext, configLoader}
-import org.apache.spark.sql.expressions.Window
+import java.text.SimpleDateFormat
+
+import com.foxconn.iisd.bd.rca.XWJKernelEngine.configContext
+import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.TimestampType
-import org.apache.spark.sql.{Column, DataFrame, Encoders}
-import org.apache.spark.storage.StorageLevel
 
 /*
  *
  *
  * @author EchoLee
  * @date 2019/11/7 下午 04:31
- * @description 處理工單資料流
+ * @description 處理關鍵物料資料流
  */
-class WoDataProcessing(configContext: ConfigContext) extends BaseDataProcessing {
+class MatDataProcessing(configContext: ConfigContext) extends BaseDataProcessing {
 
   val sparkSession = configContext.sparkSession
   import sparkSession.implicits._
 
-  def  woCoreEngine (): Unit  = {
-    var woSourceDf = configContext.fileDataSource.fetchWoDataDf()
+  def  calculation (): Unit  = {
+    var matSourceDf = configContext.fileDataSource.fetchMatDataDf()
+    saveTotalCnt2SummaryFile(matSourceDf)
 
-    val upsertTime = new java.util.Date()
+    val upsertTime = new SimpleDateFormat(configContext.jobDateFmt).format(new java.util.Date().getTime())
 
-    woSourceDf = woSourceDf.drop("prodversion","create_date")
-      .withColumn("release_date", unix_timestamp(trim($"release_date"), configContext.woDtFmt)
-        .cast(TimestampType))
-      .withColumn("upsert_time", lit(upsertTime).cast(TimestampType))
+    matSourceDf = matSourceDf.withColumn("upsert_time", lit(upsertTime).cast(TimestampType))
       .withColumn("ke_flag", lit(configContext.flag))
+      .distinct()
 
-    woSourceDf.show(3, false)
+    saveDistTotalCnt2SummaryFile(matSourceDf)
 
-    //將工單資料儲存進Cockroachdb
-    println("saveToCockroachdb --> woSourceDf")
+    matSourceDf.show(3, false)
+
+    //3.1 將關鍵物料資料儲存進Cockroachdb
+    println("saveToCockroachdb --> matSourceDf")
     configContext.cockroachDBIo.saveToCockroachdb(
-      woSourceDf,
-      configContext.cockroachDbWoTable,
+      matSourceDf,
+      configContext.cockroachDbMatTable,
       configContext.sparkNumExcutors)
+
+    //3.2 將關鍵物料資料儲存進mariadb
+    println("saveToMariadb --> matSourceDf")
+    matSourceDf = matSourceDf.drop("upsert_time")
+    configContext.mysqlDBIo.saveToMariadb(matSourceDf, configContext.mysqlProductItemSpecTable, configContext.sparkNumExcutors)
+
   }
 
   override def saveTotalCnt2SummaryFile(dataFrame: DataFrame): Unit = {

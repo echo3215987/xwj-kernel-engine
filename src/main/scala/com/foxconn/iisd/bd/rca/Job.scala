@@ -2,7 +2,7 @@ package com.foxconn.iisd.bd.rca
 
 import java.net.InetAddress
 import java.text.SimpleDateFormat
-import java.util.{Calendar, Date}
+import java.util.Date
 
 class Job extends Serializable {
 
@@ -25,15 +25,15 @@ class Job extends Serializable {
     //job id sameple : rca-ke-dev-uuid-20190919101500-driver
 
     configContext.env match {
-      case KEConstants.ENV_LOCAL =>
+      case XWJKEConstants.ENV_LOCAL =>
         println(s"======> env : local")
         val date = new Date()
         val sdf = new SimpleDateFormat("yyyyMMddHHmmss")
         jobId = "rca-ke-dev-uuid-" + sdf.format(date) + "-driver"
-      case KEConstants.ENV_DEV =>
+      case XWJKEConstants.ENV_DEV =>
         println(s"======> env : dev")
         jobId = getHostName()
-      case KEConstants.ENV_PROD =>
+      case XWJKEConstants.ENV_PROD =>
         println(s"======> env : prod")
         jobId = getHostName()
       case _  => "======> Env Error !!!!!"
@@ -50,9 +50,9 @@ class Job extends Serializable {
    * @description
    */
   def getHostName(): String = {
-    var hostName = "";
+    var hostName = ""
     try {
-      val ip = InetAddress.getLocalHost();
+      val ip = InetAddress.getLocalHost()
       hostName = ip.getHostName
     } catch {
       case ex: Exception => {

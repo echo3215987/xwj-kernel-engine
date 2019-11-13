@@ -8,8 +8,8 @@ abstract class BaseDataSource() {
   def init()
 
   // read Data
-  def fetchMasterDataDf(): DataFrame
-  def fetchDetailDataDf(): DataFrame
-  def fetchTestDataDf(): DataFrame
+  def fetchTestDetailDataDf(): DataFrame
+  def fetchWoDataDf(): DataFrame
+  def fetchMatDataDf(): DataFrame
 
 }

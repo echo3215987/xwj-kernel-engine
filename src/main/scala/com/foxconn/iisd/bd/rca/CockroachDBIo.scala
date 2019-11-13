@@ -3,7 +3,7 @@ package com.foxconn.iisd.bd.rca
 import java.sql.DriverManager
 import java.util.Properties
 
-import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
+import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.storage.StorageLevel
 
 /*
@@ -78,24 +78,24 @@ class CockroachDBIo(configContext: ConfigContext) extends Serializable {
       .persist(StorageLevel.MEMORY_AND_DISK_SER)
   }
 
-//  def saveDB(df: DataFrame, table: String, numExecutors: Int): Unit = {
-//    df.write
-//      .mode(SaveMode.Append)
-//      .option("numPartitions", numExecutors)
-//      .jdbc(ConfigContext.cockroachDbConnUrlStr, table, this.getCockroachdbConnectionProperties())
-//  }
-
-
-//  def saveDBOverwrite(df: DataFrame, table: String, numExecutors: Int): Unit = {
-//    df.write
-//      .mode(SaveMode.Overwrite)
-//      .option("numPartitions", numExecutors)
-//      .jdbc(ConfigContext.cockroachDbConnUrlStr, table, this.getCockroachdbConnectionProperties())
-//  }
-
   def getDfFromCockroachdb(spark: SparkSession, table: String, predicates: Array[String]): DataFrame = {
     spark.read.jdbc(this.getCockroachdbUrl(), table, predicates, this.getCockroachdbConnectionProperties()).persist(StorageLevel.MEMORY_AND_DISK_SER)
   }
+
+//  def getDfFromCockroachdb(spark: SparkSession, query: String, numPartitions: Int,
+//                           primaryKey: String, lowerBound: String, upperBound: String): DataFrame = {
+//    return spark.read.format("jdbc")
+//      .option("url", this.getCockroachdbUrl())
+//      .option("numPartitions", numPartitions)
+//      .option("partitionColumn", primaryKey)
+//      .option("lowerBound", lowerBound)
+//      .option("upperBound", upperBound)
+//      .option("sslmode", this.getCockroachdbSSLMode())
+//      .option("user", this.getCockroachdbUser())
+//      .option("password", this.getCockroachdbPassword())
+//      .option("dbtable", query)
+//      .load()
+//  }
 
   def saveToCockroachdb(df: DataFrame, table: String, numExecutors: Int): Unit = {
 
@@ -122,7 +122,11 @@ class CockroachDBIo(configContext: ConfigContext) extends Serializable {
         partition.foreach { r =>
           count += 1
 
-          val values = r.mkString("'", "','", "'").replaceAll("'null'", "null")
+          val values = r.mkString("'", "','", "'")
+            .replaceAll("'null'", "null")
+            .replaceAll("\"null\"", "null")
+            .replaceAll("'ARRAY\\[", "ARRAY[")
+            .replaceAll("\\]'", "]")
 
           sql = sql + "(" + values + ") ,"
 

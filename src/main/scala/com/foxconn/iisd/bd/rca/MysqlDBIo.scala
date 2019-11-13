@@ -3,7 +3,7 @@ package com.foxconn.iisd.bd.rca
 import java.sql.{Connection, DriverManager}
 import java.util.Properties
 
-import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
+import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.storage.StorageLevel
 
 @SerialVersionUID(100L)
@@ -82,6 +82,7 @@ class MysqlDBIo(configContext: ConfigContext) extends Serializable {
     val conn = this.getConn()
     conn.createStatement().execute(sql)
     conn.commit()
+    conn.close()
   }
 
   def saveToMariadb(df: DataFrame, table: String, numExecutors: Int): Unit = {

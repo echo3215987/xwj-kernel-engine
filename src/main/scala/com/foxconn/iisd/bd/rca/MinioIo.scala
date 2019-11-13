@@ -5,11 +5,11 @@ import java.net.URI
 import java.text.DecimalFormat
 import java.util
 
-import com.foxconn.iisd.bd.rca.utils.SummaryFile
 import org.apache.hadoop.fs.{FSDataInputStream, FSDataOutputStream, FileSystem, Path}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.apache.spark.storage.StorageLevel
+import org.apache.hadoop.fs.FileUtil
 
 import scala.io.Source
 
@@ -20,8 +20,8 @@ class MinioIo(configContext: ConfigContext) extends Serializable {
   /*
    *  
    * 
-   * @author JasonLai
-   * @date 2019/10/1 上午10:38
+   * @author EchoLee
+   * @date 2019/11/7 上午10:38
    * @param [spark, srcPathStr, fileLimits, yearMonth, day, hourMinuteSecond]
    * @return org.apache.hadoop.fs.Path
    * @description 攤平資料夾階層，判斷檔案限制大小，進行資料搬移，並回傳目的地路徑
@@ -65,7 +65,8 @@ class MinioIo(configContext: ConfigContext) extends Serializable {
           println("======> number : " + count +
             " , [MOVE] " + file.getPath + " -> " + tmpFilePath.toString +
             " , file size : " + getNetFileSizeDescription(file.getLen))
-          fileSystem.rename(file.getPath, tmpFilePath)
+          FileUtil.copy(fileSystem, file.getPath, fileSystem, tmpFilePath, false, true, spark.sparkContext.hadoopConfiguration)
+//          fileSystem.rename(file.getPath, tmpFilePath)
           count = count + 1
           totalSize = totalSize + file.getLen
           println("======> totalSize add getLen : " + getNetFileSizeDescription(totalSize))
@@ -76,9 +77,9 @@ class MinioIo(configContext: ConfigContext) extends Serializable {
           Thread.sleep(100)
         }
       }
-      configContext.residualCapacityDataSize = fileLimits - totalSize
+//      configContext.residualCapacityDataSize = fileLimits - totalSize
       println("======> files total size : " + getNetFileSizeDescription(totalSize))
-      println("======> residual capacity data size : " + getNetFileSizeDescription(configContext.residualCapacityDataSize))
+//      println("======> residual capacity data size : " + getNetFileSizeDescription(configContext.residualCapacityDataSize))
     } catch {
       case ex: FileNotFoundException => {
         println("===> FileNotFoundException !!!")
@@ -88,12 +89,12 @@ class MinioIo(configContext: ConfigContext) extends Serializable {
       }
     }
 
-    if(destPath.toString.indexOf(KEConstants.MINIO_BOBCAT_PATH) > 0) {
-      SummaryFile.testFilesNameList = filesNameList
-    } else if(destPath.toString.indexOf(KEConstants.MINIO_WIP_PARTS_PATH) > 0) {
-      SummaryFile.detailFilesNameList = filesNameList
-    } else if(destPath.toString.indexOf(KEConstants.MINIO_WIP_PATH) > 0) {
-      SummaryFile.masterFilesNameList = filesNameList
+    if(destPath.toString.indexOf(XWJKEConstants.MINIO_TEST_DETAIL_PATH) > 0) {
+      SummaryFile.testDetailFilesNameList = filesNameList
+    } else if(destPath.toString.indexOf(XWJKEConstants.MINIO_WO_PATH) > 0) {
+      SummaryFile.woFilesNameList = filesNameList
+    } else if(destPath.toString.indexOf(XWJKEConstants.MINIO_MAT_PATH) > 0) {
+      SummaryFile.matFilesNameList = filesNameList
     } else {
       // error
       println(s"======> Path that does not exist !!!")
@@ -105,8 +106,8 @@ class MinioIo(configContext: ConfigContext) extends Serializable {
   /*
    *  
    * 
-   * @author JasonLai
-   * @date 2019/10/1 上午10:27
+   * @author EchoLee
+   * @date 2019/11/7 上午10:27
    * @param [spark, path, columns, dataSeperator]
    * @return org.apache.spark.sql.Dataset<org.apache.spark.sql.Row>
    * @description 將目的路徑底下的所有檔案資料建立為spark dataframe
@@ -123,6 +124,8 @@ class MinioIo(configContext: ConfigContext) extends Serializable {
       .map(_.split(dataSeperator, schema.fields.length).map(field => {
         if(field.isEmpty)
           ""
+        else if(field.contains(XWJKEConstants.ctrlCCode))//控制字元不濾掉空白
+          field
         else
           field.trim
       }))
@@ -146,23 +149,23 @@ class MinioIo(configContext: ConfigContext) extends Serializable {
     val bytes = new StringBuffer()
     val format = new DecimalFormat("###.0")
     if (size >= 1024 * 1024 * 1024) {
-      val i = (size / (1024.0 * 1024.0 * 1024.0));
-      bytes.append(format.format(i)).append("GB");
+      val i = (size / (1024.0 * 1024.0 * 1024.0))
+      bytes.append(format.format(i)).append("GB")
     }
     else if (size >= 1024 * 1024) {
       val i = (size / (1024.0 * 1024.0));
-      bytes.append(format.format(i)).append("MB");
+      bytes.append(format.format(i)).append("MB")
     }
     else if (size >= 1024) {
       val i = (size / (1024.0));
-      bytes.append(format.format(i)).append("KB");
+      bytes.append(format.format(i)).append("KB")
     }
     else if (size < 1024) {
       if (size <= 0) {
-        bytes.append("0B");
+        bytes.append("0B")
       }
       else {
-        bytes.append(size.toInt).append("B");
+        bytes.append(size.toInt).append("B")
       }
     }
     bytes.toString()
@@ -184,8 +187,6 @@ class MinioIo(configContext: ConfigContext) extends Serializable {
     val tag = configContext.summaryFileLogTag
     val fileExtension = configContext.summaryFileExtension
     val bucket = configContext.minioBucket
-//    println(s"======> bucket : ${bucket}")
-//    println("bucket UpperCase : " + bucket.toUpperCase())
 
     val outputPath = new Path(outputPathStr)
     val fileSystem = FileSystem.get(URI.create(outputPath.getParent.toString), spark.sparkContext.hadoopConfiguration)
@@ -222,8 +223,6 @@ class MinioIo(configContext: ConfigContext) extends Serializable {
     if(fileSystem.exists(new Path(outputFileName))) {
       fileInput = fileSystem.open(new Path(destPath.toString + "/" + bucket.toUpperCase() + "_" + tag + "_" + yearStr + monthStr + dayStr + "." + fileExtension))
       Source.fromInputStream(new BufferedInputStream(fileInput)).getLines().foreach { line => builder.append(line.toString + "\n") }
-      // java.lang.UnsupportedOperationException: Append is not supported by S3AFileSystem
-      //          output = fileSystem.append(new Path(outputFileName))
     }
     output = fileSystem.create(new Path(outputFileName))
     val writer = new PrintWriter(output)
@@ -249,9 +248,9 @@ class MinioIo(configContext: ConfigContext) extends Serializable {
 
     this.job = configContext.job
     val isJobStatus = configContext.isJobState
-    val wipPath = configContext.wipPath
-    val wipPartsPath = configContext.wipPartsPath
-    val bobcatPath = configContext.bobcatPath
+    val testDetailPath = configContext.testDetailPath
+    val woPath = configContext.woPath
+    val matPath = configContext.matPath
     val jobId = job.jobId
     val yearMonth = getJobIdTime(0, 4).toString + getJobIdTime(4, 6).toString
     val day = getJobIdTime(6, 8).toString
@@ -261,16 +260,16 @@ class MinioIo(configContext: ConfigContext) extends Serializable {
     try {
       var status = ""
       if(isJobStatus) {
-        println(KEConstants.JOB_SUCCEEDED)
+        println(XWJKEConstants.JOB_SUCCEEDED)
         status = "Succeeded"
       } else {
-        println(KEConstants.JOB_FAILED)
+        println(XWJKEConstants.JOB_FAILED)
         status = "Failed"
       }
-      val fileSystem = FileSystem.get(URI.create(wipPath), configContext.sparkSession.sparkContext.hadoopConfiguration)
-      moveFiles(wipPath, fileSystem, yearMonth, day, hourMinuteSecond, jobId, status)
-      moveFiles(wipPartsPath, fileSystem, yearMonth, day, hourMinuteSecond, jobId, status)
-      moveFiles(bobcatPath, fileSystem, yearMonth, day, hourMinuteSecond, jobId, status)
+      val fileSystem = FileSystem.get(URI.create(testDetailPath), configContext.sparkSession.sparkContext.hadoopConfiguration)
+      moveFiles(testDetailPath, fileSystem, yearMonth, day, hourMinuteSecond, jobId, status)
+      moveFiles(woPath, fileSystem, yearMonth, day, hourMinuteSecond, jobId, status)
+      moveFiles(matPath, fileSystem, yearMonth, day, hourMinuteSecond, jobId, status)
     } catch {
       case ex: Exception => {
         println("======> Exception !!!")

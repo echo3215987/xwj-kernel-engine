@@ -14,7 +14,7 @@ import org.apache.spark.sql.types.TimestampType
 import org.apache.spark.sql.{Column, Encoders, SparkSession}
 import org.apache.spark.storage.StorageLevel
 
-object XWJKernelEngineBackup {
+object _XWJKernelEngineBackup {
   // create configLoader object
   var configLoader = new ConfigLoader()
   // create job object
@@ -103,7 +103,7 @@ object XWJKernelEngineBackup {
           ex.printStackTrace()
         }
       } finally {
-        IoUtils.moveFilesByJobStatus(
+        _IoUtils.moveFilesByJobStatus(
           spark,
           testDetailPath,
           woPath,
@@ -211,11 +211,11 @@ object XWJKernelEngineBackup {
 
       println(s"MB Limits : $mbLimits")
 
-      val mariadbUtils = new MariadbUtils()
+      val mariadbUtils = new _MariadbUtils()
 
       //(1)測試結果表
       //1-1: 將測試結果表資料儲存進Cockroachdb
-      val testDetailDestPath = IoUtils.flatMinioFiles(spark,
+      val testDetailDestPath = _IoUtils.flatMinioFiles(spark,
         testDetailPath,
         (mbLimits * 1024 * 1024),
         jobYear + jobMonth,
@@ -224,7 +224,7 @@ object XWJKernelEngineBackup {
 
 //      val testDetailDestPath = new Path("s3a://rca-ftp/Cartridge-Nesta/Data/TEST_DETAIL/2019/08/28/10/00/00/*")
 
-      val testDetailSourceDf = IoUtils.getDfFromPath(spark, testDetailDestPath.toString, testDetailColumns, dataSeperator)
+      val testDetailSourceDf = _IoUtils.getDfFromPath(spark, testDetailDestPath.toString, testDetailColumns, dataSeperator)
 
 println("testDetailSourceDf from file, Used Memory:  " + (runtime.totalMemory - runtime.freeMemory) / mb + " MB")
 
@@ -298,7 +298,7 @@ println("testDetailCockroachDf count:" + testDetailCockroachDf.count())
         val masterSql = "select " + masterFilterColumn.split(",").map(col => "t2." + col).mkString(",") + " from " + masterTable + " as t2, " +
           "(select sn, product, min(scantime) as scantime from " + masterTable + " where " + snCondition + " group by sn, product) as t1 " +
           "where t2.sn=t1.sn and t2.product = t1.product and t1.scantime=t2.scantime"
-        val partMasterDf = IoUtils.getDfFromCockroachdb(spark, masterSql, numExecutors)
+        val partMasterDf = _IoUtils.getDfFromCockroachdb(spark, masterSql, numExecutors)
             .withColumnRenamed("floor", "scan_floor")
 //        partMasterDf.show(false)
 
@@ -321,7 +321,7 @@ println("testDetailCockroachDf count:" + testDetailCockroachDf.count())
         val wSpecPartDetailAsc = Window.partitionBy(col("id"))
           .orderBy(asc("scantime"))
 
-        val partDetailDf = IoUtils.getDfFromCockroachdb(spark, detailSql, numExecutors)
+        val partDetailDf = _IoUtils.getDfFromCockroachdb(spark, detailSql, numExecutors)
           .withColumn("rank", rank().over(wSpecPartDetailAsc))
           .where($"rank".equalTo(1))
           .drop("rank", "scantime")
@@ -336,7 +336,7 @@ println("testDetailCockroachDf count:" + testDetailCockroachDf.count())
           configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
 
         println("saveToCockroachdb --> testDetailCockroachDf")
-        IoUtils.saveToCockroachdb(testDetailCockroachDf,
+        _IoUtils.saveToCockroachdb(testDetailCockroachDf,
           configLoader.getString("log_prop", "test_detail_table"),
           numExecutors)
 
@@ -410,14 +410,14 @@ println("testDetailCockroachDf count:" + testDetailCockroachDf.count())
       }
 
       //(2)工單
-      val woDestPath = IoUtils.flatMinioFiles(spark,
+      val woDestPath = _IoUtils.flatMinioFiles(spark,
         woPath,
         totalRawDataSize,
         jobYear + jobMonth,
         jobDay,
         jobHour + jobMinute + jobSecond)
 
-      var woSourceDf = IoUtils.getDfFromPath(spark, woDestPath.toString, woColumns, dataSeperator)
+      var woSourceDf = _IoUtils.getDfFromPath(spark, woDestPath.toString, woColumns, dataSeperator)
       woSourceDf = woSourceDf.drop("prodversion","create_date")
         .withColumn("release_date", unix_timestamp(trim($"release_date"), woDtfmt)
           .cast(TimestampType))
@@ -429,26 +429,26 @@ woSourceDf.show(3, false)
 
       //將工單資料儲存進Cockroachdb
       println("saveToCockroachdb --> woSourceDf")
-      IoUtils.saveToCockroachdb(woSourceDf,
+      _IoUtils.saveToCockroachdb(woSourceDf,
         configLoader.getString("log_prop", "wo_table"),
         numExecutors)
 
       //(3)關鍵物料
-      val matDestPath = IoUtils.flatMinioFiles(spark,
+      val matDestPath = _IoUtils.flatMinioFiles(spark,
         matPath,
         totalRawDataSize,
         jobYear + jobMonth,
         jobDay,
         jobHour + jobMinute + jobSecond)
 
-      var matSourceDf = IoUtils.getDfFromPath(spark, matDestPath.toString, matColumns, dataSeperator)
+      var matSourceDf = _IoUtils.getDfFromPath(spark, matDestPath.toString, matColumns, dataSeperator)
 println("matSourceDf from file, Used Memory:  " + (runtime.totalMemory - runtime.freeMemory) / mb + " MB")
 
       matSourceDf = matSourceDf.withColumn("upsert_time", lit(jobStartTime).cast(TimestampType))
 matSourceDf.show(3, false)
       //3.1 將關鍵物料資料儲存進Cockroachdb
       println("saveToCockroachdb --> matSourceDf")
-      IoUtils.saveToCockroachdb(matSourceDf, matTable, numExecutors)
+      _IoUtils.saveToCockroachdb(matSourceDf, matTable, numExecutors)
 
       //3.2 將關鍵物料資料儲存進mariadb
       println("saveToMariadb --> matSourceDf")

@@ -14,6 +14,7 @@ val sparkVersion = "2.4.0"
 //val awsVersion = "1.7.4"
 val hadoopVersion = "3.1.1"
 val awsVersion = "1.11.271"
+val scalaTestVersion = "3.0.8"
 
 resolvers ++= Seq(
     "Maven2" at "http://central.maven.org/maven2/"
@@ -51,7 +52,10 @@ libraryDependencies ++= Seq(
     "org.apache.hadoop" % "hadoop-aws" % hadoopVersion,
     //unarchive xz file
     "com.databricks" %% "spark-xml" % "0.5.0",
-    "org.apache.commons" % "commons-compress" % "1.18"
+    "org.apache.commons" % "commons-compress" % "1.18",
+    //    test code
+//    "org.scalactic" %% "scalactic" % scalaTestVersion,
+//    "org.scalatest" %% "scalatest" % scalaTestVersion % "test"
 
 )
 
@@ -92,3 +96,4 @@ assemblyMergeStrategy in assembly := {
 //artifactName := { (sv: ScalaVersion, module: ModuleID, artifact: Artifact) =>
 //    module.name + "." + artifact.name + "." + module.revision + "." + artifact.classifier
 //}
+

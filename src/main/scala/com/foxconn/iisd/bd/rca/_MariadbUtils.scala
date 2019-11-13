@@ -6,7 +6,7 @@ import java.util.Properties
 import com.foxconn.iisd.bd.rca.XWJKernelEngine.configLoader
 import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
 
-class MariadbUtils {
+class _MariadbUtils {
 
     private var _conn: Connection = null
 
