@@ -43,7 +43,7 @@ mariadb:
 general:
     factory: "CQ"
     from_minio: "true"
-    env: "production"
+    env: "prod"
 
 part_vendor_rules:
     CD: "PARTSN,1,2"

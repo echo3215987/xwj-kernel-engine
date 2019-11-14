@@ -53,14 +53,14 @@ class FileSource(configContext: ConfigContext) extends BaseDataSource with Seria
    * @date 2019/11/7 上午9:40
    * @param []
    * @return org.apache.spark.sql.Dataset<org.apache.spark.sql.Row>
-   * @description 從minio test detail file取得master資料，並轉換成 spark dataframe
+   * @description 從minio test detail file取得test detail資料，並轉換成 spark dataframe
    */
   override def fetchTestDetailDataDf(): DataFrame = {
     println("======> test detail data from file")
 
     val testDetailDestPath = minioIo.flatMinioFiles(configContext.sparkSession,
       testDetailPath,
-      mbLimits * 1024 * 1024,
+      mbLimits * XWJKEConstants.mb,
       getJobIdTime(0, 4).toString + getJobIdTime(4, 6).toString,
       getJobIdTime(6, 8).toString,
       getJobIdTime(8, 10).toString + getJobIdTime(10, 12).toString + getJobIdTime(12, 14).toString)
@@ -75,7 +75,7 @@ class FileSource(configContext: ConfigContext) extends BaseDataSource with Seria
    * @date 2019/11/7 上午9:42
    * @param []
    * @return org.apache.spark.sql.Dataset<org.apache.spark.sql.Row>
-   * @description 從minio wo file取得detail資料，並轉換成 spark dataframe
+   * @description 從minio wo file取得wo資料，並轉換成 spark dataframe
    */
   override def fetchWoDataDf(): DataFrame = {
     println("======> wo data from file")
@@ -91,11 +91,11 @@ class FileSource(configContext: ConfigContext) extends BaseDataSource with Seria
   /*
    *
    *
-   * @author JasonLai
+   * @author EchoLee
    * @date 2019/9/19 上午9:43
    * @param []
    * @return org.apache.spark.sql.Dataset<org.apache.spark.sql.Row>
-   * @description 從minio mat file取得test資料，並轉換成 spark dataframe
+   * @description 從minio mat file取得mat資料，並轉換成 spark dataframe
    */
   override def fetchMatDataDf(): DataFrame = {
     println("======> mat data from file")

@@ -34,7 +34,7 @@ object XWJKernelEngine {
     Logger.getLogger("akka").setLevel(Level.OFF)
 
     //Job開始
-    println("======> Kernel Engine Job Start")
+    println("======> XWJ Kernel Engine Job Start")
     job.jobStartTime = new java.util.Date()
 
     ////////////////////////////////////////////////////////////////////////////////////////
@@ -80,7 +80,7 @@ object XWJKernelEngine {
 
     //Job結束
     job.jobEndTime = new java.util.Date()
-    println("======> Kernel Engine Job End")
+    println("======> XWJ Kernel Engine Job End")
     configContext.isJobState = true
     val jobEndTime: String = new SimpleDateFormat(configContext.jobDateFmt).format(job.jobEndTime.getTime())
     println("job end time : " + jobEndTime)
@@ -89,7 +89,7 @@ object XWJKernelEngine {
     //將TMP檔案依照Job State搬到Succeeded or Failed
     ////////////////////////////////////////////////////////////////////////////////////////
     val minioIo = new MinioIo(configContext)
-//    minioIo.moveFilesByJobStatus()
+    minioIo.moveFilesByJobStatus()
 
     ////////////////////////////////////////////////////////////////////////////////////////
     //SummaryFile輸出

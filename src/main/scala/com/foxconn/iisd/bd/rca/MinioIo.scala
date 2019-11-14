@@ -65,8 +65,8 @@ class MinioIo(configContext: ConfigContext) extends Serializable {
           println("======> number : " + count +
             " , [MOVE] " + file.getPath + " -> " + tmpFilePath.toString +
             " , file size : " + getNetFileSizeDescription(file.getLen))
-          FileUtil.copy(fileSystem, file.getPath, fileSystem, tmpFilePath, false, true, spark.sparkContext.hadoopConfiguration)
-//          fileSystem.rename(file.getPath, tmpFilePath)
+//          FileUtil.copy(fileSystem, file.getPath, fileSystem, tmpFilePath, false, true, spark.sparkContext.hadoopConfiguration)
+          fileSystem.rename(file.getPath, tmpFilePath)
           count = count + 1
           totalSize = totalSize + file.getLen
           println("======> totalSize add getLen : " + getNetFileSizeDescription(totalSize))
